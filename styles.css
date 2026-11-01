@@ -1,0 +1,322 @@
+* {
+    font-family: 'IBM Plex Sans Thai', sans-serif;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: #F8EADC;
+    color: #09251C;
+    line-height: 1.6;
+}
+
+.container {
+    width: 75%;
+    margin: 0 auto;
+}
+
+/* --- Navigation Bar --- */
+nav {
+    background-color: #09251C; 
+    padding: 15px 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.nav-wrapper {
+    display: flex;
+    justify-content: flex-end;
+    gap: 30px;
+}
+
+nav a {
+    text-decoration: none;
+    color: #FDF0D5;
+    padding: 8px 12px;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+    font-weight: 500;
+}
+
+nav a:hover {
+    color: #09251C;
+    background-color: #E9C46A;
+}
+
+/* --- Banner Section --- */
+#banner {
+    text-align: center;
+    padding: 60px 20px;
+    background-color: #2C5745;
+    color: #F8EADC;
+    border-radius: 0 0 16px 16px;
+    margin-bottom: 40px;
+}
+
+#banner header {
+    font-size: calc(1.8rem + 1vw);
+    font-weight: 700;
+    text-decoration: underline #E9C46A 4px;
+    color: #E9C46A;
+    margin-bottom: 15px;
+}
+
+/* --- Content Sections --- */
+.content-section {
+    background-color: #FDF0D5;
+    padding: 40px;
+    border-radius: 12px;
+    margin-bottom: 40px;
+    box-shadow: 0 2px 10px rgba(165, 87, 4, 0.1);
+}
+
+.content-section h2 {
+    color: #A55704;
+    border-bottom: 2px solid #F3D2AF;
+    padding-bottom: 10px;
+    margin-bottom: 25px;
+}
+
+.search-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 30px;
+}
+.search-bar input {
+    flex: 1;
+    padding: 12px;
+    border: 1px solid #F3D2AF;
+    border-radius: 6px;
+}
+.btn-search {
+    background-color: #A55704;
+    color: white;
+    border: none;
+    padding: 0 24px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+/* --- Slider & Cards (Fixed Aspect Ratio) --- */
+.slider-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    position: relative;
+}
+
+.slider-container {
+    display: flex;
+    overflow-x: auto;
+    gap: 20px;
+    padding: 10px 0;
+    scroll-behavior: smooth;
+    flex: 1;
+    /* Hide scrollbar for cleaner look with buttons */
+    -ms-overflow-style: none;  
+    scrollbar-width: none;  
+}
+.slider-container::-webkit-scrollbar { 
+    display: none; 
+}
+
+.slider-btn {
+    background-color: #fff;
+    border: 2px solid #09251C;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: 0.2s;
+}
+.slider-btn:hover {
+    background-color: #F3D2AF;
+}
+
+/* Card Styling - Almost Square / slightly horizontal */
+.slider-card {
+    flex: 0 0 260px; /* Fixed width */
+    height: 240px;   /* Fixed height for uniformity */
+    background-color: #fff;
+    border: 2px solid #09251C;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 15px;
+    border-bottom: 2px solid #09251C;
+    min-height: 80px; /* Space for multi-line titles */
+}
+
+.company-name {
+    font-size: 1.2rem;
+    color: #000;
+    margin: 0;
+    flex: 1;
+    line-height: 1.3;
+}
+
+.sector-tag {
+    font-size: 0.9rem;
+    margin-left: 10px;
+}
+.private-sector { color: blue; }
+.gov-sector { color: red; }
+
+.card-body {
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    justify-content: space-between; /* Pushes button to bottom */
+}
+
+.location {
+    color: #888;
+    font-size: 1rem;
+    margin: 0;
+}
+
+.btn-readmore {
+    background-color: #2C5745;
+    color: white;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    align-self: flex-end; /* Align right */
+    font-weight: 500;
+}
+.btn-readmore:hover {
+    background-color: #1a382c;
+}
+
+/* --- Modal (Pop-up) --- */
+.modal {
+    display: none; /* Hidden by default */
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background-color: #FDF0D5;
+    border: 2px solid #000;
+    border-radius: 16px;
+    width: 80%;
+    max-width: 800px;
+    padding: 30px;
+    position: relative;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+}
+
+.close-btn {
+    position: absolute;
+    top: -15px;
+    right: -15px;
+    background-color: #E76F51;
+    color: #000;
+    border: 2px solid #000;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.close-btn:hover {
+    background-color: #d65a3d;
+}
+
+.modal-header {
+    display: flex;
+    align-items: baseline;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+.modal-header h2 {
+    font-size: 2rem;
+    color: #000;
+    margin: 0;
+    border: none;
+    padding: 0;
+}
+
+.modal-body {
+    display: flex;
+    gap: 30px;
+}
+
+.modal-details {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    color: #555;
+    font-size: 1.1rem;
+}
+.modal-details p { margin: 0; }
+.modal-details strong { color: #000; }
+
+.modal-image-review {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+.image-placeholder {
+    width: 100%;
+    background-color: #f3e6cd;
+    border: 2px solid #000;
+    height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-weight: bold;
+}
+
+.review-section {
+    text-align: center;
+}
+.stars {
+    color: #E9C46A;
+    font-size: 2rem;
+    margin-bottom: 5px;
+}
+.review-note {
+    font-size: 0.9rem;
+    color: #888;
+}
+
+/* --- Form Styles --- */
+.add-form { display: flex; flex-direction: column; gap: 15px; }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-group input { padding: 10px; border: 1px solid #F3D2AF; border-radius: 4px; }
+.btn-submit { background-color: #249D8F; color: white; padding: 10px; border: none; border-radius: 4px; cursor: pointer; width: fit-content; }

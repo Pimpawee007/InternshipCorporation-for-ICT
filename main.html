@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Internship Corporation for ICT</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/x-icon" href="love.jpg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="script.js" defer></script>
+</head>
+
+<body>
+    <nav>
+        <div class="container nav-wrapper">
+            <a href="#find">ค้นหาบริษัท (Find)</a>
+            <a href="#add">เพิ่มข้อมูลบริษัท (Add)</a>
+            <a href="#more">ข้อมูลเพิ่มเติม (More info)</a>
+            <a href="#contact">ติดต่อคณะ (Contact)</a>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <!-- Banner Section -->
+        <section id="banner">
+            <header>Hello, Internship Student!</header>
+            <p>This website was developing for Internship student in faculty of ICT, Mahidol.<br>And also developer was a student in ICT!</p>
+        </section>
+
+        <!-- Find Section -->
+        <section id="find" class="content-section">
+            <h2>ค้นหาบริษัท</h2>
+            <div class="search-bar">
+                <input type="text" placeholder="ค้นหาด้วยชื่อบริษัท หรือ Tag...">
+                <button class="btn-search">ค้นหา</button>
+            </div>
+            
+            <div class="slider-wrapper">
+                <button class="slider-btn prev-btn">&lt;</button>
+                <div class="slider-container" id="slider">
+                    
+                    <!-- Company Card 1 -->
+                    <div class="slider-card">
+                        <div class="card-header">
+                            <h4 class="company-name">บริษัท โค้ดดิ้ง สเปซ จำกัด</h4>
+                            <span class="sector-tag private-sector">เอกชน</span>
+                        </div>
+                        <div class="card-body">
+                            <p class="location">สถานที่ตั้ง: พญาไท, กรุงเทพฯ...</p>
+                            <button class="btn-readmore" onclick="openModal('company1')">เพิ่มเติม</button>
+                        </div>
+                    </div>
+
+                    <!-- Company Card 2 -->
+                    <div class="slider-card">
+                        <div class="card-header">
+                            <h4 class="company-name">สำนักงานพัฒนารัฐบาลดิจิทัล</h4>
+                            <span class="sector-tag gov-sector">ภาครัฐ</span>
+                        </div>
+                        <div class="card-body">
+                            <p class="location">สถานที่ตั้ง: พญาไท, กรุงเทพฯ...</p>
+                            <button class="btn-readmore" onclick="openModal('company2')">เพิ่มเติม</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Company Card 3 -->
+                    <div class="slider-card">
+                        <div class="card-header">
+                            <h4 class="company-name">บริษัท ดาต้า อนาไลติกส์</h4>
+                            <span class="sector-tag private-sector">เอกชน</span>
+                        </div>
+                        <div class="card-body">
+                            <p class="location">สถานที่ตั้ง: สาทร, กรุงเทพฯ...</p>
+                            <button class="btn-readmore" onclick="openModal('company3')">เพิ่มเติม</button>
+                        </div>
+                    </div>
+
+                     <!-- Company Card 4 -->
+                     <div class="slider-card">
+                        <div class="card-header">
+                            <h4 class="company-name">กระทรวงดิจิทัลเพื่อเศรษฐกิจฯ</h4>
+                            <span class="sector-tag gov-sector">ภาครัฐ</span>
+                        </div>
+                        <div class="card-body">
+                            <p class="location">สถานที่ตั้ง: แจ้งวัฒนะ, กรุงเทพฯ...</p>
+                            <button class="btn-readmore" onclick="openModal('company4')">เพิ่มเติม</button>
+                        </div>
+                    </div>
+
+                    <!-- Company Card 5 -->
+                    <div class="slider-card">
+                        <div class="card-header">
+                            <h4 class="company-name">บริษัท เทค อินโนเวชั่น</h4>
+                            <span class="sector-tag private-sector">เอกชน</span>
+                        </div>
+                        <div class="card-body">
+                            <p class="location">สถานที่ตั้ง: บางนา, กรุงเทพฯ...</p>
+                            <button class="btn-readmore" onclick="openModal('company5')">เพิ่มเติม</button>
+                        </div>
+                    </div>
+
+                </div>
+                <button class="slider-btn next-btn">&gt;</button>
+            </div>
+        </section>
+
+        <!-- Add Section -->
+        <section id="add" class="content-section">
+            <h2>เพิ่มข้อมูลบริษัท</h2>
+            <form class="add-form">
+                <div class="form-group">
+                    <label>ชื่อบริษัท</label>
+                    <input type="text" placeholder="กรอกชื่อบริษัท" required>
+                </div>
+                <div class="form-group">
+                    <label>สถานที่ตั้ง</label>
+                    <input type="text" placeholder="เขต, จังหวัด หรือ แนวรถไฟฟ้า" required>
+                </div>
+                <button type="submit" class="btn-submit">บันทึกข้อมูล</button>
+            </form>
+        </section>
+        
+        <section id="more" class="content-section">
+            <h2>ข้อมูลเพิ่มเติมเกี่ยวกับการฝึกงาน</h2>
+            <p>รายละเอียดเกณฑ์การผ่านวิชาฝึกงาน เอกสารที่ต้องใช้...</p>
+        </section>
+
+        <section id="contact" class="content-section">
+            <h2>ช่องทางติดต่อคณะ</h2>
+            <p>ติดต่อเจ้าหน้าที่งานการศึกษา คณะ ICT มหิดล...</p>
+        </section>
+    </div>
+
+    <!-- Modal (Pop-up) -->
+    <div id="companyModal" class="modal">
+        <div class="modal-content">
+            <button class="close-btn" onclick="closeModal()">X</button>
+            
+            <div class="modal-header">
+                <h2 id="modalCompanyName">ชื่อบริษัท</h2>
+                <span id="modalSectorTag" class="sector-tag">ประเภท</span>
+            </div>
+            
+            <div class="modal-body">
+                <div class="modal-details">
+                    <p><strong>ชื่อบริษัท:</strong> <span id="modalName"></span></p>
+                    <p><strong>คำอธิบาย:</strong> <span id="modalDesc"></span></p>
+                    <p><strong>สถานที่ตั้ง:</strong> <span id="modalLoc"></span></p>
+                    <p><strong>ค่าตอบแทน:</strong> <span id="modalPay" style="font-weight: bold;"></span></p>
+                    <p><strong>ตำแหน่งงานที่เปิดรับ *:</strong> <span id="modalPos"></span></p>
+                    <p><strong>ระยะเวลาการรับสมัคร *:</strong> <span id="modalTime"></span></p>
+                </div>
+                
+                <div class="modal-image-review">
+                    <div class="image-placeholder">
+                        <p>รูปภาพของบริษัท<br>มีหรือไม่มีก็ได้ และอาจมี 1-3 ภาพ</p>
+                    </div>
+                    
+                    <div class="review-section">
+                        <div class="stars">★★★★★</div>
+                        <p class="review-note">RATING จากการให้คะแนนของนักศึกษา<br>และรีวิวแบบสรุป โดย AI<br>ซึ่งตอนนี้ยังไม่ต้องมีสองระบบนี้ก็ได้</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
