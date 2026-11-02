@@ -26,6 +26,9 @@ function renderCards(companies) {
         const tagsString = company.tags ? company.tags.join(',') : '';
         const sectorCls = company.sector === 'ภาครัฐ' ? 'gov-sector' : 'private-sector';
 
+        // Include description if available
+        const descHtml = company.desc ? `<p class="card-desc"><strong>คำอธิบาย:</strong> ${company.desc}</p>` : '';
+
         const cardHTML = `
             <div class="slider-card" data-tags="${tagsString}">
                 <div class="card-header">
@@ -33,7 +36,8 @@ function renderCards(companies) {
                     <span class="sector-tag ${sectorCls}">${company.sector}</span>
                 </div>
                 <div class="card-body">
-                    <p class="location">สถานที่ตั้ง: ${company.loc}</p>
+                    ${descHtml}
+                    <p class="location"><strong>สถานที่ตั้ง:</strong> ${company.loc}</p>
                     <button class="btn-readmore" onclick="openDetailsModal('${company.id}')">เพิ่มเติม</button>
                 </div>
             </div>
@@ -70,7 +74,6 @@ function openDetailsModal(companyId) {
     document.getElementById('modalPos').textContent = data.pos || '-';
     document.getElementById('modalTime').textContent = data.time || '-';
     
-    // Handle Contact - Make it a link if it looks like a URL
     const contactText = data.contact || '-';
     const linkEl = document.getElementById('modalContactLink');
     const textEl = document.getElementById('modalContactText');
@@ -168,7 +171,6 @@ document.getElementById('addCompanyForm').addEventListener('submit', async (e) =
         payStr = 'ไม่มีค่าตอบแทน';
     }
 
-    // Collect additional selected tags from form
     const additionalTags = document.querySelectorAll('input[name="addTags"]:checked');
     additionalTags.forEach(t => tags.push(t.value));
 
@@ -207,7 +209,6 @@ document.getElementById('addCompanyForm').addEventListener('submit', async (e) =
     }
 });
 
-// Close modal when clicking outside
 window.onclick = function(event) {
     if (event.target.classList.contains('modal')) {
         event.target.style.display = 'none';
