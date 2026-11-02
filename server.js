@@ -1,7 +1,7 @@
 const express = require('express');
-const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
+const mongoose = require('mongoose');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -10,16 +10,37 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-const dataFile = path.join(__dirname, 'data.json');
+// 🔗 เชื่อมต่อไปยัง MongoDB Atlas ของคุณ
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://pimpawee49_db_user:wDSUhF5vHeFfA9FH@internshipproject1.c0djffi.mongodb.net/internship_db?retryWrites=true&w=majority';
 
-if (!fs.existsSync(dataFile)) {
-    fs.writeFileSync(dataFile, JSON.stringify([]));
-}
+mongoose.connect(MONGO_URI)
+    .then(() => console.log('✅ Connected to MongoDB Atlas successfully!'))
+    .catch((err) => console.error('❌ MongoDB connection error:', err));
 
+// สร้าง Schema และ Model สำหรับเก็บข้อมูลบริษัท
+const companySchema = new mongoose.Schema({
+    id: String,
+    name: String,
+    loc: String,
+    sector: String,
+    desc: String,
+    pay: String,
+    pos: String,
+    time: String,
+    contact: String,
+    tags: [String]
+});
+
+const Company = mongoose.model('Company', companySchema);
+
+// Admin Credentials
 const admins = [
     { username: 'CodeLyxn', password: 'mhiyoklnwza888' }
 ];
 
+// --- Routes ---
+
+// Login
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
     const isValid = admins.some(a => a.username === username && a.password === password);
@@ -30,18 +51,25 @@ app.post('/api/login', (req, res) => {
     }
 });
 
-app.get('/api/companies', (req, res) => {
-    const data = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
-    res.json(data);
+// Get all companies from MongoDB
+app.get('/api/companies', async (req, res) => {
+    try {
+        const companies = await Company.find();
+        res.json(companies);
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
 });
 
-app.post('/api/companies', (req, res) => {
+// Add new company to MongoDB
+app.post('/api/companies', async (req, res) => {
     try {
-        const data = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
-        const newCompany = req.body;
-        newCompany.id = 'c' + Date.now();
-        data.push(newCompany);
-        fs.writeFileSync(dataFile, JSON.stringify(data, null, 2));
+        const newCompanyData = req.body;
+        newCompanyData.id = 'c' + Date.now();
+
+        const newCompany = new Company(newCompanyData);
+        await newCompany.save();
+
         res.json({ success: true, company: newCompany });
     } catch (error) {
         console.error(error);
@@ -49,11 +77,10 @@ app.post('/api/companies', (req, res) => {
     }
 });
 
-app.delete('/api/companies/:id', (req, res) => {
+// Delete company from MongoDB
+app.delete('/api/companies/:id', async (req, res) => {
     try {
-        let data = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
-        data = data.filter(c => c.id !== req.params.id);
-        fs.writeFileSync(dataFile, JSON.stringify(data, null, 2));
+        await Company.findOneAndDelete({ id: req.params.id });
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Server error' });
