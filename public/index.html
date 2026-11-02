@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Internship Corporation for ICT</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/x-icon" href="love.jpg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="script.js" defer></script>
+</head>
+
+<body>
+    <nav>
+        <div class="container nav-wrapper">
+            <a href="#find">ค้นหาบริษัท (Find)</a>
+            <a href="#add">เพิ่มข้อมูลบริษัท (Add)</a>
+            <a href="#more">ข้อมูลเพิ่มเติม (More info)</a>
+            <a href="#contact">ติดต่อคณะ (Contact)</a>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <!-- Banner Section -->
+        <section id="banner">
+            <header>Hello, Internship Student!</header>
+            <p>This website was developing for Internship student in faculty of ICT, Mahidol.<br>And also developer was a student in ICT!</p>
+        </section>
+
+        <!-- Find Section -->
+        <section id="find" class="content-section">
+            <h2>ค้นหาบริษัท</h2>
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="ค้นหาด้วยชื่อบริษัท...">
+                <button class="btn-filter" id="btnOpenFilter">กรองด้วย Tag</button>
+                <button class="btn-search" id="btnSearch">ค้นหา</button>
+            </div>
+            
+            <!-- Gov Slider -->
+            <h3 class="slider-title">ภาครัฐ</h3>
+            <div class="slider-wrapper">
+                <div class="slider-container" id="sliderGov">
+                    <!-- Cards injected by JS -->
+                </div>
+                <button class="slider-btn next-btn" onclick="slideNext('sliderGov')">&gt;</button>
+            </div>
+
+            <!-- Private Slider -->
+            <h3 class="slider-title">เอกชน</h3>
+            <div class="slider-wrapper">
+                <div class="slider-container" id="sliderPrivate">
+                    <!-- Cards injected by JS -->
+                </div>
+                <button class="slider-btn next-btn" onclick="slideNext('sliderPrivate')">&gt;</button>
+            </div>
+        </section>
+
+        <!-- Add Section -->
+        <section id="add" class="content-section">
+            <h2>เพิ่มข้อมูลบริษัท</h2>
+            <form class="add-form" id="addCompanyForm">
+                <div class="form-group">
+                    <label>ชื่อบริษัท</label>
+                    <input type="text" placeholder="กรอกชื่อบริษัท" required>
+                </div>
+                <div class="form-group">
+                    <label>สถานที่ตั้ง</label>
+                    <input type="text" placeholder="เขต, จังหวัด หรือ แนวรถไฟฟ้า" required>
+                </div>
+                
+                <button type="button" class="btn-toggle" id="btnToggleExtra">&gt; เพิ่มเติม</button>
+                
+                <div id="extraFields" class="hidden">
+                    <div class="form-group">
+                        <label>คำอธิบายพอสังเขป</label>
+                        <textarea rows="3" placeholder="ลักษณะงานเบื้องต้น"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>ค่าตอบแทน</label>
+                        <div class="radio-group">
+                            <label><input type="radio" name="payType" value="amount"> กรอกจำนวน</label>
+                            <label><input type="radio" name="payType" value="agreed"> ตามแต่ตกลง</label>
+                            <label><input type="radio" name="payType" value="none" checked> ไม่มี</label>
+                        </div>
+                        <input type="text" id="payAmountInput" class="hidden mt-2" placeholder="เช่น 12,000 - 15,000 บาท/เดือน">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>ตำแหน่งงานที่เปิดรับ (ระบุได้หลายตำแหน่ง)</label>
+                        <input type="text" placeholder="เช่น IT Support, Software Tester">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>ระยะเวลาการรับสมัคร</label>
+                        <div class="date-group">
+                            <div>
+                                <label class="sub-label">วันที่เริ่ม</label>
+                                <input type="date">
+                            </div>
+                            <div>
+                                <label class="sub-label">วันที่สิ้นสุด</label>
+                                <input type="date">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>รูปภาพ (สูงสุด 3 ภาพ)</label>
+                        <input type="file" accept="image/*" multiple max="3" id="imageUpload">
+                        <small style="color:#888;">อัปโหลดได้เฉพาะไฟล์รูปภาพ หากไม่มีไม่ต้องแนบ</small>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-submit">บันทึกข้อมูล</button>
+            </form>
+        </section>
+        
+        <section id="more" class="content-section">
+            <h2>ข้อมูลเพิ่มเติมเกี่ยวกับการฝึกงาน</h2>
+            <p>รายละเอียดเกณฑ์การผ่านวิชาฝึกงาน เอกสารที่ต้องใช้...</p>
+        </section>
+
+        <section id="contact" class="content-section">
+            <h2>ช่องทางติดต่อคณะ</h2>
+            <p>ติดต่อเจ้าหน้าที่งานการศึกษา คณะ ICT มหิดล...</p>
+        </section>
+    </div>
+
+    <!-- Filter Modal -->
+    <div id="filterModal" class="modal">
+        <div class="modal-content filter-content">
+            <h3>FIND BY TAG</h3>
+            <div class="filter-body">
+                <div class="checkbox-grid">
+                    <label><input type="checkbox" value="ภาครัฐ"> ภาครัฐ</label>
+                    <label><input type="checkbox" value="เอกชน"> เอกชน</label>
+                    <label><input type="checkbox" value="มีค่าตอบแทน"> มีค่าตอบแทน</label>
+                    <label><input type="checkbox" value="ภาคกลาง"> ภาคกลาง</label>
+                    <label><input type="checkbox" value="ต่างจังหวัด"> ต่างจังหวัด</label>
+                    <label><input type="checkbox" value="ต่างประเทศ"> ต่างประเทศ</label>
+                    <label><input type="checkbox" value="รับฝึกมากกว่า 2 เดือน"> รับฝึกมากกว่า 2 เดือน</label>
+                </div>
+                <div class="filter-actions">
+                    <button class="btn-filter-submit" id="btnApplyFilter">ค้นหา</button>
+                    <button class="btn-filter-cancel" id="btnCancelFilter">ยกเลิก</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Company Details Modal -->
+    <div id="companyModal" class="modal">
+        <div class="modal-content details-content">
+            <button class="close-btn" onclick="closeModal('companyModal')">X</button>
+            
+            <div class="modal-header">
+                <h2 id="modalCompanyName">ชื่อบริษัท</h2>
+                <span id="modalSectorTag" class="sector-tag">ประเภท</span>
+            </div>
+            
+            <div class="modal-body">
+                <div class="modal-details">
+                    <p><strong>คำอธิบาย:</strong> <span id="modalDesc"></span></p>
+                    <p><strong>สถานที่ตั้ง:</strong> <span id="modalLoc"></span></p>
+                    <p><strong>ค่าตอบแทน:</strong> <span id="modalPay" class="highlight-pay"></span></p>
+                    <p><strong>ตำแหน่งงานที่เปิดรับ:</strong> <span id="modalPos"></span></p>
+                    <p><strong>ระยะเวลาการรับสมัคร:</strong> <span id="modalTime"></span></p>
+                    <p><strong>ช่องทางติดต่อ:</strong> <span id="modalContact"></span></p>
+                </div>
+                
+                <div class="modal-image-container" id="modalImageContainer">
+                    <!-- Images will be injected here if available -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

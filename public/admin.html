@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Internship Corporation</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .admin-container { width: 80%; margin: 50px auto; background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .login-form { display: flex; flex-direction: column; gap: 15px; max-width: 400px; margin: 0 auto; }
+        .login-form input { padding: 12px; border: 1px solid #ccc; border-radius: 6px; }
+        .btn-login { background-color: #249D8F; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        
+        #adminPanel { display: none; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #eee; padding: 12px; text-align: left; }
+        th { background-color: #09251C; color: #fff; }
+        .btn-del { background-color: #ff3b3b; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
+        .header-flex { display: flex; justify-content: space-between; align-items: center; }
+    </style>
+</head>
+<body style="background-color: #F8EADC;">
+
+    <div class="admin-container" id="loginSection">
+        <h2 style="text-align: center; color: #09251C; margin-bottom: 20px;">🔒 เข้าสู่ระบบผู้ดูแล (Admin)</h2>
+        <form class="login-form" id="loginForm">
+            <input type="text" id="username" placeholder="Username" required>
+            <input type="password" id="password" placeholder="Password" required>
+            <button type="submit" class="btn-login">Login</button>
+            <a href="index.html" style="text-align: center; color: #888; text-decoration: none; margin-top: 10px;">กลับหน้าหลัก</a>
+        </form>
+    </div>
+
+    <div class="admin-container" id="adminPanel">
+        <div class="header-flex">
+            <h2>⚙️ จัดการข้อมูลบริษัท</h2>
+            <div>
+                <a href="index.html" style="margin-right: 15px; text-decoration: none; color: #249D8F; font-weight: bold;">ดูหน้าเว็บ</a>
+                <button onclick="logout()" style="padding: 8px 16px; cursor: pointer;">ออกจากระบบ</button>
+            </div>
+        </div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>ชื่อบริษัท</th>
+                    <th>ประเภท</th>
+                    <th>สถานที่</th>
+                    <th>ติดต่อ</th>
+                    <th>จัดการ</th>
+                </tr>
+            </thead>
+            <tbody id="companyTableBody">
+                <!-- Data injected here -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/api';
+
+        // Check login status on load
+        if (sessionStorage.getItem('adminToken')) {
+            showPanel();
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const u = document.getElementById('username').value;
+            const p = document.getElementById('password').value;
+
+            try {
+                const res = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: u, password: p })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    sessionStorage.setItem('adminToken', data.token);
+                    showPanel();
+                } else {
+                    alert(data.message);
+                }
+            } catch (err) {
+                alert('ไม่สามารถเชื่อมต่อ Server ได้');
+            }
+        });
+
+        function showPanel() {
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('adminPanel').style.display = 'block';
+            loadData();
+        }
+
+        function logout() {
+            sessionStorage.removeItem('adminToken');
+            location.reload();
+        }
+
+        async function loadData() {
+            const res = await fetch(`${API_URL}/companies`);
+            const companies = await res.json();
+            const tbody = document.getElementById('companyTableBody');
+            tbody.innerHTML = '';
+            
+            companies.forEach(c => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${c.name}</td>
+                        <td>${c.sector}</td>
+                        <td>${c.loc}</td>
+                        <td>${c.contact || '-'}</td>
+                        <td>
+                            <button class="btn-del" onclick="deleteCompany('${c.id}')">ลบ</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function deleteCompany(id) {
+            if(confirm('คุณแน่ใจหรือไม่ที่จะลบข้อมูลนี้?')) {
+                await fetch(`${API_URL}/companies/${id}`, { method: 'DELETE' });
+                loadData();
+            }
+        }
+    </script>
+</body>
+</html>
