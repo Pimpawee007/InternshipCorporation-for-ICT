@@ -1,7 +1,6 @@
-const API_URL = 'http://localhost:3000/api';
+const API_URL = '/api';
 let companyData = [];
 
-// Fetch data from real backend
 async function fetchCompanies() {
     try {
         const response = await fetch(`${API_URL}/companies`);
@@ -9,12 +8,11 @@ async function fetchCompanies() {
         renderCards(companyData);
     } catch (error) {
         console.error("Error fetching data:", error);
-        document.getElementById('sliderGov').innerHTML = '<p>ไม่สามารถโหลดข้อมูลได้ กรุณาเปิด Server</p>';
-        document.getElementById('sliderPrivate').innerHTML = '<p>ไม่สามารถโหลดข้อมูลได้ กรุณาเปิด Server</p>';
+        document.getElementById('sliderGov').innerHTML = '<p>ไม่สามารถโหลดข้อมูลได้</p>';
+        document.getElementById('sliderPrivate').innerHTML = '<p>ไม่สามารถโหลดข้อมูลได้</p>';
     }
 }
 
-// Initial render call
 fetchCompanies();
 
 function renderCards(companies) {
@@ -73,20 +71,6 @@ function openDetailsModal(companyId) {
     document.getElementById('modalTime').textContent = data.time || '-';
     document.getElementById('modalContact').textContent = data.contact || '-';
     
-    const imgContainer = document.getElementById('modalImageContainer');
-    imgContainer.innerHTML = ''; 
-    if (data.images && data.images.length > 0) {
-        data.images.forEach(src => {
-            const img = document.createElement('img');
-            // Check if URL is absolute or relative
-            img.src = src.startsWith('http') ? src : 'http://localhost:3000' + src;
-            imgContainer.appendChild(img);
-        });
-        imgContainer.style.display = 'flex';
-    } else {
-        imgContainer.style.display = 'none';
-    }
-    
     document.getElementById('companyModal').style.display = 'flex';
 }
 
@@ -144,34 +128,21 @@ payRadios.forEach(radio => {
     });
 });
 
-// Form Submission -> POST to Backend
 document.getElementById('addCompanyForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btnSubmit = document.getElementById('btnSubmitAdd');
     btnSubmit.textContent = 'กำลังบันทึก...';
     btnSubmit.disabled = true;
 
-    const formData = new FormData();
-    formData.append('name', document.getElementById('addName').value);
-    formData.append('loc', document.getElementById('addLoc').value);
-    formData.append('sector', document.getElementById('addSector').value);
-    formData.append('desc', document.getElementById('addDesc').value);
-    formData.append('pos', document.getElementById('addPos').value);
-    formData.append('contact', document.getElementById('addContact').value);
-    
-    // Format Time
+    // Time Format
     const tStart = document.getElementById('addTimeStart').value;
     const tEnd = document.getElementById('addTimeEnd').value;
-    if(tStart && tEnd) {
-        formData.append('time', `${tStart} ถึง ${tEnd}`);
-    } else {
-        formData.append('time', '-');
-    }
+    const timeStr = (tStart && tEnd) ? `${tStart} ถึง ${tEnd}` : '-';
 
-    // Format Pay
+    // Pay Format
     const pType = document.querySelector('input[name="payType"]:checked').value;
     let payStr = '-';
-    let tags = [document.getElementById('addSector').value]; // Add sector as default tag
+    let tags = [document.getElementById('addSector').value];
     
     if(pType === 'amount') {
         payStr = document.getElementById('payAmountInput').value;
@@ -182,19 +153,24 @@ document.getElementById('addCompanyForm').addEventListener('submit', async (e) =
     } else {
         payStr = 'ไม่มีค่าตอบแทน';
     }
-    formData.append('pay', payStr);
-    formData.append('tags', tags.join(','));
 
-    // Append Images
-    const files = document.getElementById('imageUpload').files;
-    for (let i = 0; i < files.length; i++) {
-        formData.append('images', files[i]);
-    }
+    const payload = {
+        name: document.getElementById('addName').value,
+        loc: document.getElementById('addLoc').value,
+        sector: document.getElementById('addSector').value,
+        desc: document.getElementById('addDesc').value,
+        pos: document.getElementById('addPos').value,
+        contact: document.getElementById('addContact').value,
+        time: timeStr,
+        pay: payStr,
+        tags: tags
+    };
 
     try {
         const res = await fetch(`${API_URL}/companies`, {
             method: 'POST',
-            body: formData
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
         });
         const result = await res.json();
         if(result.success) {
@@ -202,7 +178,7 @@ document.getElementById('addCompanyForm').addEventListener('submit', async (e) =
             e.target.reset();
             document.getElementById('extraFields').classList.add('hidden');
             document.getElementById('btnToggleExtra').innerHTML = '&gt; เพิ่มเติม';
-            fetchCompanies(); // Reload data immediately
+            fetchCompanies();
         }
     } catch (err) {
         alert('เกิดข้อผิดพลาดในการเชื่อมต่อ Server');

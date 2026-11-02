@@ -11,14 +11,18 @@
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="script.js" defer></script>
 </head>
-
 <body>
     <nav>
         <div class="container nav-wrapper">
-            <a href="#find">ค้นหาบริษัท (Find)</a>
-            <a href="#add">เพิ่มข้อมูลบริษัท (Add)</a>
-            <a href="#more">ข้อมูลเพิ่มเติม (More info)</a>
-            <a href="#contact">ติดต่อคณะ (Contact)</a>
+            <div class="nav-left">
+                <a href="admin.html" class="btn-admin-nav">🔑 Admin</a>
+            </div>
+            <div class="nav-right">
+                <a href="#find">ค้นหาบริษัท (Find)</a>
+                <a href="#add">เพิ่มข้อมูลบริษัท (Add)</a>
+                <a href="#more">ข้อมูลเพิ่มเติม (More info)</a>
+                <a href="#contact-section">ติดต่อคณะ (Contact)</a>
+            </div>
         </div>
     </nav>
     
@@ -38,20 +42,18 @@
                 <button class="btn-search" id="btnSearch">ค้นหา</button>
             </div>
             
-            <!-- Gov Slider -->
             <h3 class="slider-title">ภาครัฐ</h3>
             <div class="slider-wrapper">
                 <div class="slider-container" id="sliderGov">
-                    <!-- Cards injected by JS -->
+                    <p class="loading-text">กำลังโหลดข้อมูล...</p>
                 </div>
                 <button class="slider-btn next-btn" onclick="slideNext('sliderGov')">&gt;</button>
             </div>
 
-            <!-- Private Slider -->
             <h3 class="slider-title">เอกชน</h3>
             <div class="slider-wrapper">
                 <div class="slider-container" id="sliderPrivate">
-                    <!-- Cards injected by JS -->
+                    <p class="loading-text">กำลังโหลดข้อมูล...</p>
                 </div>
                 <button class="slider-btn next-btn" onclick="slideNext('sliderPrivate')">&gt;</button>
             </div>
@@ -63,11 +65,18 @@
             <form class="add-form" id="addCompanyForm">
                 <div class="form-group">
                     <label>ชื่อบริษัท</label>
-                    <input type="text" placeholder="กรอกชื่อบริษัท" required>
+                    <input type="text" id="addName" placeholder="กรอกชื่อบริษัท" required>
                 </div>
                 <div class="form-group">
                     <label>สถานที่ตั้ง</label>
-                    <input type="text" placeholder="เขต, จังหวัด หรือ แนวรถไฟฟ้า" required>
+                    <input type="text" id="addLoc" placeholder="เขต, จังหวัด หรือ แนวรถไฟฟ้า" required>
+                </div>
+                <div class="form-group">
+                    <label>ประเภทบริษัท (Sector)</label>
+                    <select id="addSector" required>
+                        <option value="เอกชน">เอกชน</option>
+                        <option value="ภาครัฐ">ภาครัฐ</option>
+                    </select>
                 </div>
                 
                 <button type="button" class="btn-toggle" id="btnToggleExtra">&gt; เพิ่มเติม</button>
@@ -75,7 +84,7 @@
                 <div id="extraFields" class="hidden">
                     <div class="form-group">
                         <label>คำอธิบายพอสังเขป</label>
-                        <textarea rows="3" placeholder="ลักษณะงานเบื้องต้น"></textarea>
+                        <textarea id="addDesc" rows="3" placeholder="ลักษณะงานเบื้องต้น"></textarea>
                     </div>
                     
                     <div class="form-group">
@@ -90,7 +99,7 @@
                     
                     <div class="form-group">
                         <label>ตำแหน่งงานที่เปิดรับ (ระบุได้หลายตำแหน่ง)</label>
-                        <input type="text" placeholder="เช่น IT Support, Software Tester">
+                        <input type="text" id="addPos" placeholder="เช่น IT Support, Software Tester">
                     </div>
                     
                     <div class="form-group">
@@ -98,23 +107,22 @@
                         <div class="date-group">
                             <div>
                                 <label class="sub-label">วันที่เริ่ม</label>
-                                <input type="date">
+                                <input type="date" id="addTimeStart">
                             </div>
                             <div>
                                 <label class="sub-label">วันที่สิ้นสุด</label>
-                                <input type="date">
+                                <input type="date" id="addTimeEnd">
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="form-group">
-                        <label>รูปภาพ (สูงสุด 3 ภาพ)</label>
-                        <input type="file" accept="image/*" multiple max="3" id="imageUpload">
-                        <small style="color:#888;">อัปโหลดได้เฉพาะไฟล์รูปภาพ หากไม่มีไม่ต้องแนบ</small>
+                        <label>ช่องทางติดต่อ (Email / Website / Phone)</label>
+                        <input type="text" id="addContact" placeholder="กรอกข้อมูลติดต่อ">
                     </div>
                 </div>
 
-                <button type="submit" class="btn-submit">บันทึกข้อมูล</button>
+                <button type="submit" class="btn-submit" id="btnSubmitAdd">บันทึกข้อมูล</button>
             </form>
         </section>
         
@@ -123,7 +131,7 @@
             <p>รายละเอียดเกณฑ์การผ่านวิชาฝึกงาน เอกสารที่ต้องใช้...</p>
         </section>
 
-        <section id="contact" class="content-section">
+        <section id="contact-section" class="content-section">
             <h2>ช่องทางติดต่อคณะ</h2>
             <p>ติดต่อเจ้าหน้าที่งานการศึกษา คณะ ICT มหิดล...</p>
         </section>
@@ -170,13 +178,8 @@
                     <p><strong>ระยะเวลาการรับสมัคร:</strong> <span id="modalTime"></span></p>
                     <p><strong>ช่องทางติดต่อ:</strong> <span id="modalContact"></span></p>
                 </div>
-                
-                <div class="modal-image-container" id="modalImageContainer">
-                    <!-- Images will be injected here if available -->
-                </div>
             </div>
         </div>
     </div>
-
 </body>
 </html>

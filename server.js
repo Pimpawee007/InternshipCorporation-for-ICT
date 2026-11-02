@@ -1,7 +1,6 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const multer = require('multer');
 const cors = require('cors');
 
 const app = express();
@@ -10,7 +9,6 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const dataFile = path.join(__dirname, 'data.json');
 
@@ -18,21 +16,6 @@ const dataFile = path.join(__dirname, 'data.json');
 if (!fs.existsSync(dataFile)) {
     fs.writeFileSync(dataFile, JSON.stringify([]));
 }
-
-// Setup Multer for image uploads
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        const dir = './uploads';
-        if (!fs.existsSync(dir)){
-            fs.mkdirSync(dir);
-        }
-        cb(null, dir);
-    },
-    filename: function (req, file, cb) {
-        cb(null, Date.now() + '-' + Math.round(Math.random() * 1E9) + path.extname(file.originalname));
-    }
-});
-const upload = multer({ storage: storage });
 
 // Admin Credentials
 const admins = [
@@ -58,19 +41,17 @@ app.get('/api/companies', (req, res) => {
     res.json(data);
 });
 
-// Add new company
-app.post('/api/companies', upload.array('images', 3), (req, res) => {
+// Add new company (JSON input only, no images)
+app.post('/api/companies', (req, res) => {
     try {
         const data = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
         const newCompany = req.body;
         
         newCompany.id = 'c' + Date.now();
-        newCompany.images = req.files ? req.files.map(f => '/uploads/' + f.filename) : [];
         
-        // Handle tags processing from frontend
-        if (newCompany.tags) {
+        if (typeof newCompany.tags === 'string') {
             newCompany.tags = newCompany.tags.split(',').map(t => t.trim());
-        } else {
+        } else if (!Array.isArray(newCompany.tags)) {
             newCompany.tags = [];
         }
 
@@ -90,24 +71,6 @@ app.delete('/api/companies/:id', (req, res) => {
         data = data.filter(c => c.id !== req.params.id);
         fs.writeFileSync(dataFile, JSON.stringify(data, null, 2));
         res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ success: false, message: 'Server error' });
-    }
-});
-
-// Update company (Simple update for admin)
-app.put('/api/companies/:id', (req, res) => {
-    try {
-        let data = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
-        const index = data.findIndex(c => c.id === req.params.id);
-        if(index !== -1) {
-            // Merge updated data (ignoring file updates for simplicity in this version)
-            data[index] = { ...data[index], ...req.body };
-            fs.writeFileSync(dataFile, JSON.stringify(data, null, 2));
-            res.json({ success: true });
-        } else {
-            res.status(404).json({ success: false, message: 'Not found' });
-        }
     } catch (error) {
         res.status(500).json({ success: false, message: 'Server error' });
     }
