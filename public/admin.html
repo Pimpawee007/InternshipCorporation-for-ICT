@@ -7,17 +7,31 @@
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        .admin-container { width: 80%; margin: 50px auto; background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .admin-container { width: 90%; max-width: 1000px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         .login-form { display: flex; flex-direction: column; gap: 15px; max-width: 400px; margin: 0 auto; }
         .login-form input { padding: 12px; border: 1px solid #ccc; border-radius: 6px; }
         .btn-login { background-color: #249D8F; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
         
         #adminPanel { display: none; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #eee; padding: 12px; text-align: left; }
+        .table-responsive { overflow-x: auto; margin-top: 20px;}
+        table { width: 100%; border-collapse: collapse; min-width: 600px; table-layout: fixed;}
+        th, td { border: 1px solid #eee; padding: 12px; text-align: left; vertical-align: top;}
         th { background-color: #09251C; color: #fff; }
+        
+        /* Column widths */
+        th:nth-child(1) { width: 25%; }
+        th:nth-child(2) { width: 10%; }
+        th:nth-child(3) { width: 30%; }
+        th:nth-child(4) { width: 25%; }
+        th:nth-child(5) { width: 10%; }
+
+        /* Break long texts in cells */
+        .cell-break { word-wrap: break-word; overflow-wrap: break-word; word-break: break-word; hyphens: auto; }
+        .link-break { word-break: break-all; color: #249D8F; text-decoration: none;}
+        .link-break:hover { text-decoration: underline; }
+
         .btn-del { background-color: #ff3b3b; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
-        .header-flex { display: flex; justify-content: space-between; align-items: center; }
+        .header-flex { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;}
     </style>
 </head>
 <body style="background-color: #F8EADC;">
@@ -37,23 +51,25 @@
             <h2>⚙️ จัดการข้อมูลบริษัท</h2>
             <div>
                 <a href="index.html" style="margin-right: 15px; text-decoration: none; color: #249D8F; font-weight: bold;">ดูหน้าเว็บ</a>
-                <button onclick="logout()" style="padding: 8px 16px; cursor: pointer;">ออกจากระบบ</button>
+                <button onclick="logout()" style="padding: 8px 16px; cursor: pointer; background-color: #eee; border: 1px solid #ccc; border-radius: 4px;">ออกจากระบบ</button>
             </div>
         </div>
         
-        <table>
-            <thead>
-                <tr>
-                    <th>ชื่อบริษัท</th>
-                    <th>ประเภท</th>
-                    <th>สถานที่</th>
-                    <th>ติดต่อ</th>
-                    <th>จัดการ</th>
-                </tr>
-            </thead>
-            <tbody id="companyTableBody">
-            </tbody>
-        </table>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ชื่อบริษัท</th>
+                        <th>ประเภท</th>
+                        <th>สถานที่</th>
+                        <th>ติดต่อ</th>
+                        <th>จัดการ</th>
+                    </tr>
+                </thead>
+                <tbody id="companyTableBody">
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <script>
@@ -105,12 +121,22 @@
             tbody.innerHTML = '';
             
             companies.forEach(c => {
+                let contactHTML = '-';
+                if(c.contact) {
+                    if(c.contact.startsWith('http') || c.contact.startsWith('www.')) {
+                        let url = c.contact.startsWith('www.') ? 'http://' + c.contact : c.contact;
+                        contactHTML = `<a href="${url}" target="_blank" class="link-break">${c.contact}</a>`;
+                    } else {
+                        contactHTML = c.contact;
+                    }
+                }
+
                 tbody.innerHTML += `
                     <tr>
-                        <td>${c.name}</td>
+                        <td class="cell-break">${c.name}</td>
                         <td>${c.sector}</td>
-                        <td>${c.loc}</td>
-                        <td>${c.contact || '-'}</td>
+                        <td class="cell-break">${c.loc}</td>
+                        <td class="cell-break">${contactHTML}</td>
                         <td>
                             <button class="btn-del" onclick="deleteCompany('${c.id}')">ลบ</button>
                         </td>

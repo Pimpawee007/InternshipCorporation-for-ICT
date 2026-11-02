@@ -12,19 +12,14 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const dataFile = path.join(__dirname, 'data.json');
 
-// Initialize database file if it doesn't exist
 if (!fs.existsSync(dataFile)) {
     fs.writeFileSync(dataFile, JSON.stringify([]));
 }
 
-// Admin Credentials
 const admins = [
     { username: 'CodeLyxn', password: 'mhiyoklnwza888' }
 ];
 
-// --- Routes ---
-
-// Login
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
     const isValid = admins.some(a => a.username === username && a.password === password);
@@ -35,26 +30,16 @@ app.post('/api/login', (req, res) => {
     }
 });
 
-// Get all companies
 app.get('/api/companies', (req, res) => {
     const data = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
     res.json(data);
 });
 
-// Add new company (JSON input only, no images)
 app.post('/api/companies', (req, res) => {
     try {
         const data = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
         const newCompany = req.body;
-        
         newCompany.id = 'c' + Date.now();
-        
-        if (typeof newCompany.tags === 'string') {
-            newCompany.tags = newCompany.tags.split(',').map(t => t.trim());
-        } else if (!Array.isArray(newCompany.tags)) {
-            newCompany.tags = [];
-        }
-
         data.push(newCompany);
         fs.writeFileSync(dataFile, JSON.stringify(data, null, 2));
         res.json({ success: true, company: newCompany });
@@ -64,7 +49,6 @@ app.post('/api/companies', (req, res) => {
     }
 });
 
-// Delete company
 app.delete('/api/companies/:id', (req, res) => {
     try {
         let data = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));

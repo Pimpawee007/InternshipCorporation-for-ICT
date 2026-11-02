@@ -27,13 +27,11 @@
     </nav>
     
     <div class="container">
-        <!-- Banner Section -->
         <section id="banner">
             <header>Hello, Internship Student!</header>
             <p>This website was developing for Internship student in faculty of ICT, Mahidol.<br>And also developer was a student in ICT!</p>
         </section>
 
-        <!-- Find Section -->
         <section id="find" class="content-section">
             <h2>ค้นหาบริษัท</h2>
             <div class="search-bar">
@@ -59,7 +57,6 @@
             </div>
         </section>
 
-        <!-- Add Section -->
         <section id="add" class="content-section">
             <h2>เพิ่มข้อมูลบริษัท</h2>
             <form class="add-form" id="addCompanyForm">
@@ -79,6 +76,17 @@
                     </select>
                 </div>
                 
+                <!-- Added Tag Selection directly in the form -->
+                <div class="form-group">
+                    <label>เลือก Tag เพิ่มเติมสำหรับการค้นหา</label>
+                    <div class="add-tag-grid">
+                        <label><input type="checkbox" name="addTags" value="ภาคกลาง"> ภาคกลาง</label>
+                        <label><input type="checkbox" name="addTags" value="ต่างจังหวัด"> ต่างจังหวัด</label>
+                        <label><input type="checkbox" name="addTags" value="ต่างประเทศ"> ต่างประเทศ</label>
+                        <label><input type="checkbox" name="addTags" value="รับฝึกมากกว่า 2 เดือน"> รับฝึกมากกว่า 2 เดือน</label>
+                    </div>
+                </div>
+
                 <button type="button" class="btn-toggle" id="btnToggleExtra">&gt; เพิ่มเติม</button>
                 
                 <div id="extraFields" class="hidden">
@@ -159,24 +167,24 @@
         </div>
     </div>
 
-    <!-- Company Details Modal -->
+    <!-- Company Details Modal (Added word-break logic in CSS) -->
     <div id="companyModal" class="modal">
         <div class="modal-content details-content">
             <button class="close-btn" onclick="closeModal('companyModal')">X</button>
             
             <div class="modal-header">
-                <h2 id="modalCompanyName">ชื่อบริษัท</h2>
+                <h2 id="modalCompanyName" class="break-text">ชื่อบริษัท</h2>
                 <span id="modalSectorTag" class="sector-tag">ประเภท</span>
             </div>
             
             <div class="modal-body">
                 <div class="modal-details">
-                    <p><strong>คำอธิบาย:</strong> <span id="modalDesc"></span></p>
-                    <p><strong>สถานที่ตั้ง:</strong> <span id="modalLoc"></span></p>
-                    <p><strong>ค่าตอบแทน:</strong> <span id="modalPay" class="highlight-pay"></span></p>
-                    <p><strong>ตำแหน่งงานที่เปิดรับ:</strong> <span id="modalPos"></span></p>
-                    <p><strong>ระยะเวลาการรับสมัคร:</strong> <span id="modalTime"></span></p>
-                    <p><strong>ช่องทางติดต่อ:</strong> <span id="modalContact"></span></p>
+                    <p><strong>คำอธิบาย:</strong> <span id="modalDesc" class="break-text"></span></p>
+                    <p><strong>สถานที่ตั้ง:</strong> <span id="modalLoc" class="break-text"></span></p>
+                    <p><strong>ค่าตอบแทน:</strong> <span id="modalPay" class="highlight-pay break-text"></span></p>
+                    <p><strong>ตำแหน่งงานที่เปิดรับ:</strong> <span id="modalPos" class="break-text"></span></p>
+                    <p><strong>ระยะเวลาการรับสมัคร:</strong> <span id="modalTime" class="break-text"></span></p>
+                    <p><strong>ช่องทางติดต่อ:</strong> <a id="modalContactLink" href="#" target="_blank" class="break-text link-wrap"></a><span id="modalContactText" class="break-text"></span></p>
                 </div>
             </div>
         </div>

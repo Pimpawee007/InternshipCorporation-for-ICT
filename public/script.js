@@ -69,7 +69,23 @@ function openDetailsModal(companyId) {
     document.getElementById('modalPay').textContent = data.pay || '-';
     document.getElementById('modalPos').textContent = data.pos || '-';
     document.getElementById('modalTime').textContent = data.time || '-';
-    document.getElementById('modalContact').textContent = data.contact || '-';
+    
+    // Handle Contact - Make it a link if it looks like a URL
+    const contactText = data.contact || '-';
+    const linkEl = document.getElementById('modalContactLink');
+    const textEl = document.getElementById('modalContactText');
+    
+    if (contactText.startsWith('http') || contactText.startsWith('www.')) {
+        let url = contactText.startsWith('www.') ? 'http://' + contactText : contactText;
+        linkEl.href = url;
+        linkEl.textContent = contactText;
+        linkEl.style.display = 'inline';
+        textEl.style.display = 'none';
+    } else {
+        textEl.textContent = contactText;
+        textEl.style.display = 'inline';
+        linkEl.style.display = 'none';
+    }
     
     document.getElementById('companyModal').style.display = 'flex';
 }
@@ -134,12 +150,10 @@ document.getElementById('addCompanyForm').addEventListener('submit', async (e) =
     btnSubmit.textContent = 'กำลังบันทึก...';
     btnSubmit.disabled = true;
 
-    // Time Format
     const tStart = document.getElementById('addTimeStart').value;
     const tEnd = document.getElementById('addTimeEnd').value;
     const timeStr = (tStart && tEnd) ? `${tStart} ถึง ${tEnd}` : '-';
 
-    // Pay Format
     const pType = document.querySelector('input[name="payType"]:checked').value;
     let payStr = '-';
     let tags = [document.getElementById('addSector').value];
@@ -153,6 +167,10 @@ document.getElementById('addCompanyForm').addEventListener('submit', async (e) =
     } else {
         payStr = 'ไม่มีค่าตอบแทน';
     }
+
+    // Collect additional selected tags from form
+    const additionalTags = document.querySelectorAll('input[name="addTags"]:checked');
+    additionalTags.forEach(t => tags.push(t.value));
 
     const payload = {
         name: document.getElementById('addName').value,
@@ -189,6 +207,7 @@ document.getElementById('addCompanyForm').addEventListener('submit', async (e) =
     }
 });
 
+// Close modal when clicking outside
 window.onclick = function(event) {
     if (event.target.classList.contains('modal')) {
         event.target.style.display = 'none';
