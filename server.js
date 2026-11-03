@@ -33,9 +33,10 @@ const companySchema = new mongoose.Schema({
 
 const Company = mongoose.model('Company', companySchema);
 
-// Admin Credentials
+// Admin Credentials (เพิ่มแอดมินใหม่)
 const admins = [
-    { username: 'CodeLyxn', password: 'mhiyoklnwza888' }
+    { username: 'CodeLyxn', password: 'mhiyoklnwza888' },
+    { username: 'Peerapat_pun', password: 'gyoza888' }
 ];
 
 // --- Routes ---
@@ -73,6 +74,20 @@ app.post('/api/companies', async (req, res) => {
         res.json({ success: true, company: newCompany });
     } catch (error) {
         console.error(error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+});
+
+// Update (Edit) company in MongoDB
+app.put('/api/companies/:id', async (req, res) => {
+    try {
+        const updatedCompany = await Company.findOneAndUpdate(
+            { id: req.params.id }, 
+            req.body, 
+            { new: true }
+        );
+        res.json({ success: true, company: updatedCompany });
+    } catch (error) {
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });

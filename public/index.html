@@ -48,6 +48,15 @@
                 <button class="slider-btn next-btn" onclick="slideNext('sliderGov')">&gt;</button>
             </div>
 
+            <!-- เพิ่ม Section รัฐวิสาหกิจ -->
+            <h3 class="slider-title" style="border-left-color: purple;">รัฐวิสาหกิจ</h3>
+            <div class="slider-wrapper">
+                <div class="slider-container" id="sliderState">
+                    <p class="loading-text">กำลังโหลดข้อมูล...</p>
+                </div>
+                <button class="slider-btn next-btn" onclick="slideNext('sliderState')">&gt;</button>
+            </div>
+
             <h3 class="slider-title">เอกชน</h3>
             <div class="slider-wrapper">
                 <div class="slider-container" id="sliderPrivate">
@@ -73,6 +82,7 @@
                     <select id="addSector" required>
                         <option value="เอกชน">เอกชน</option>
                         <option value="ภาครัฐ">ภาครัฐ</option>
+                        <option value="รัฐวิสาหกิจ">รัฐวิสาหกิจ</option>
                     </select>
                 </div>
                 
@@ -152,6 +162,7 @@
                 <div class="checkbox-grid">
                     <label><input type="checkbox" value="ภาครัฐ"> ภาครัฐ</label>
                     <label><input type="checkbox" value="เอกชน"> เอกชน</label>
+                    <label><input type="checkbox" value="รัฐวิสาหกิจ"> รัฐวิสาหกิจ</label>
                     <label><input type="checkbox" value="มีค่าตอบแทน"> มีค่าตอบแทน</label>
                     <label><input type="checkbox" value="ภาคกลาง"> ภาคกลาง</label>
                     <label><input type="checkbox" value="ต่างจังหวัด"> ต่างจังหวัด</label>

@@ -10,6 +10,7 @@ async function fetchCompanies() {
         console.error("Error fetching data:", error);
         document.getElementById('sliderGov').innerHTML = '<p>ไม่สามารถโหลดข้อมูลได้</p>';
         document.getElementById('sliderPrivate').innerHTML = '<p>ไม่สามารถโหลดข้อมูลได้</p>';
+        document.getElementById('sliderState').innerHTML = '<p>ไม่สามารถโหลดข้อมูลได้</p>';
     }
 }
 
@@ -18,15 +19,20 @@ fetchCompanies();
 function renderCards(companies) {
     const govContainer = document.getElementById('sliderGov');
     const priContainer = document.getElementById('sliderPrivate');
+    const stateContainer = document.getElementById('sliderState');
     
     govContainer.innerHTML = '';
     priContainer.innerHTML = '';
+    stateContainer.innerHTML = '';
     
     companies.forEach(company => {
         const tagsString = company.tags ? company.tags.join(',') : '';
-        const sectorCls = company.sector === 'ภาครัฐ' ? 'gov-sector' : 'private-sector';
+        
+        let sectorCls = '';
+        if(company.sector === 'ภาครัฐ') sectorCls = 'gov-sector';
+        else if(company.sector === 'เอกชน') sectorCls = 'private-sector';
+        else if(company.sector === 'รัฐวิสาหกิจ') sectorCls = 'state-sector'; // สีม่วง
 
-        // Include description if available
         const descHtml = company.desc ? `<p class="card-desc"><strong>คำอธิบาย:</strong> ${company.desc}</p>` : '';
 
         const cardHTML = `
@@ -45,13 +51,16 @@ function renderCards(companies) {
         
         if (company.sector === 'ภาครัฐ') {
             govContainer.innerHTML += cardHTML;
-        } else {
+        } else if (company.sector === 'เอกชน') {
             priContainer.innerHTML += cardHTML;
+        } else if (company.sector === 'รัฐวิสาหกิจ') {
+            stateContainer.innerHTML += cardHTML;
         }
     });
 
     if(govContainer.innerHTML === '') govContainer.innerHTML = '<p style="padding:20px; color:#888;">ยังไม่มีข้อมูล</p>';
     if(priContainer.innerHTML === '') priContainer.innerHTML = '<p style="padding:20px; color:#888;">ยังไม่มีข้อมูล</p>';
+    if(stateContainer.innerHTML === '') stateContainer.innerHTML = '<p style="padding:20px; color:#888;">ยังไม่มีข้อมูล</p>';
 }
 
 const scrollAmount = 280; 
@@ -66,7 +75,13 @@ function openDetailsModal(companyId) {
     document.getElementById('modalCompanyName').textContent = data.name;
     const sectorTag = document.getElementById('modalSectorTag');
     sectorTag.textContent = data.sector;
-    sectorTag.className = 'sector-tag ' + (data.sector === 'ภาครัฐ' ? 'gov-sector' : 'private-sector');
+    
+    let sectorCls = '';
+    if(data.sector === 'ภาครัฐ') sectorCls = 'gov-sector';
+    else if(data.sector === 'เอกชน') sectorCls = 'private-sector';
+    else if(data.sector === 'รัฐวิสาหกิจ') sectorCls = 'state-sector';
+    
+    sectorTag.className = 'sector-tag ' + sectorCls;
     
     document.getElementById('modalDesc').textContent = data.desc || '-';
     document.getElementById('modalLoc').textContent = data.loc || '-';
@@ -99,19 +114,42 @@ function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 document.getElementById('btnOpenFilter').addEventListener('click', () => openModal('filterModal'));
 document.getElementById('btnCancelFilter').addEventListener('click', () => closeModal('filterModal'));
 
+// ตรรกะการกรอง (เจาะจงมากขึ้น)
 document.getElementById('btnApplyFilter').addEventListener('click', () => {
-    const checkedBoxes = document.querySelectorAll('.checkbox-grid input:checked');
-    const selectedTags = Array.from(checkedBoxes).map(cb => cb.value);
+    const checkedBoxes = Array.from(document.querySelectorAll('.checkbox-grid input:checked')).map(cb => cb.value);
     
-    if (selectedTags.length === 0) {
+    if (checkedBoxes.length === 0) {
         renderCards(companyData);
-    } else {
-        const filtered = companyData.filter(company => {
-            if(!company.tags) return false;
-            return selectedTags.some(tag => company.tags.includes(tag));
-        });
-        renderCards(filtered);
+        closeModal('filterModal');
+        return;
     }
+
+    const sectorKeywords = ['ภาครัฐ', 'เอกชน', 'รัฐวิสาหกิจ'];
+    // แยกหมวดหมู่ Sector กับ Tag อื่นๆ
+    const selectedSectors = checkedBoxes.filter(val => sectorKeywords.includes(val));
+    const selectedOtherTags = checkedBoxes.filter(val => !sectorKeywords.includes(val));
+
+    const filtered = companyData.filter(company => {
+        let passSector = true;
+        let passOther = true;
+
+        // ถ้ามีการเลือก Sector ต้องตรงกับ Sector ที่เลือกเท่านั้น
+        if (selectedSectors.length > 0) {
+            passSector = selectedSectors.includes(company.sector);
+        }
+
+        // ถ้ามีการเลือก Tag อื่นๆ (เช่น มีค่าตอบแทน, ภาคกลาง) ต้องมี Tag นั้นอย่างน้อย 1 อัน
+        if (selectedOtherTags.length > 0) {
+            if (!company.tags) passOther = false;
+            else {
+                passOther = selectedOtherTags.some(tag => company.tags.includes(tag));
+            }
+        }
+
+        return passSector && passOther;
+    });
+
+    renderCards(filtered);
     closeModal('filterModal');
 });
 
@@ -166,6 +204,7 @@ document.getElementById('addCompanyForm').addEventListener('submit', async (e) =
         tags.push('มีค่าตอบแทน');
     } else if (pType === 'agreed') {
         payStr = 'ตามแต่ตกลง';
+        // การเลือก "ตามแต่ตกลง" ให้นับรวมใน tag มีค่าตอบแทน
         tags.push('มีค่าตอบแทน');
     } else {
         payStr = 'ไม่มีค่าตอบแทน';

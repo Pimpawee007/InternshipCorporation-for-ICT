@@ -12,7 +12,7 @@ body { background-color: #F8EADC; color: #09251C; line-height: 1.6; }
 /* Navigation */
 nav { background-color: #09251C; padding: 15px 0; position: sticky; top: 0; z-index: 100; }
 .nav-wrapper { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;}
-.nav-right { display: flex; gap: 15px; flex-wrap: wrap;}
+.nav-right { display: flex; gap: 15px; flex-wrap: wrap; }
 nav a { text-decoration: none; color: #FDF0D5; padding: 8px 12px; border-radius: 4px; font-weight: 500; white-space: nowrap; }
 nav a:hover { background-color: #E9C46A; color: #09251C; }
 .btn-admin-nav { background-color: #249D8F; color: white !important; font-weight: bold; border-radius: 4px; }
@@ -44,7 +44,7 @@ nav a:hover { background-color: #E9C46A; color: #09251C; }
 /* Company Card fixes */
 .slider-card { 
     flex: 0 0 260px; 
-    height: 260px; /* Fixed height enforced */
+    height: 260px; 
     background-color: #fff; 
     border: 2px solid #000; 
     border-radius: 12px; 
@@ -54,35 +54,34 @@ nav a:hover { background-color: #E9C46A; color: #09251C; }
 }
 .card-header { display: flex; justify-content: space-between; align-items: flex-start; padding: 15px; border-bottom: 2px solid #000; min-height: 75px; }
 .company-name { font-size: 1.1rem; margin: 0; flex: 1; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.sector-tag { font-size: 0.8rem; margin-left: 10px; white-space: nowrap; }
-.private-sector { color: blue; }
-.gov-sector { color: red; }
+.sector-tag { font-size: 0.8rem; margin-left: 10px; white-space: nowrap; font-weight: bold; }
+
+/* สีตามประเภท (เพิ่มรัฐวิสาหกิจ) */
+.private-sector { color: #0056b3; } /* น้ำเงิน */
+.gov-sector { color: #d32f2f; } /* แดง */
+.state-sector { color: #800080; } /* ม่วง */
+
 .card-body { 
     padding: 15px; 
     display: flex; 
     flex-direction: column; 
     flex: 1; 
-    justify-content: flex-start; /* Align text to top */
-    gap: 8px; /* Spacing between texts */
+    justify-content: flex-start; 
+    gap: 8px; 
 }
 .card-desc, .location { 
     color: #555; 
     margin: 0; 
     font-size: 0.9rem; 
     line-height: 1.4;
-    /* Force truncate at specific line count */
     display: -webkit-box; 
     -webkit-box-orient: vertical; 
     overflow: hidden; 
     text-overflow: ellipsis; 
     white-space: normal; 
 }
-.card-desc {
-    -webkit-line-clamp: 2; /* Limit description to 2 lines max */
-}
-.location {
-    -webkit-line-clamp: 2; /* Limit location to 2 lines max */
-}
+.card-desc { -webkit-line-clamp: 2; }
+.location { -webkit-line-clamp: 2; }
 .card-body strong { color: #000; }
 .btn-readmore { 
     background-color: #2C5745; 
@@ -92,7 +91,7 @@ nav a:hover { background-color: #E9C46A; color: #09251C; }
     border-radius: 6px; 
     cursor: pointer; 
     align-self: flex-end; 
-    margin-top: auto; /* Push button firmly to the bottom */
+    margin-top: auto;
 }
 
 /* Modals */
@@ -117,7 +116,6 @@ nav a:hover { background-color: #E9C46A; color: #09251C; }
     padding: 30px; 
     position: relative; 
     margin: 40px auto; 
-    /* Removed overflow: hidden or max-height from wrapper so button isn't cut */
 }
 .close-btn { 
     position: absolute; 
@@ -144,7 +142,6 @@ nav a:hover { background-color: #E9C46A; color: #09251C; }
     display: flex; 
     gap: 30px; 
     flex-wrap: wrap; 
-    /* Handle scrolling inside the body, preserving close button visibility */
     max-height: 65vh; 
     overflow-y: auto;
     overflow-x: hidden;
@@ -169,9 +166,30 @@ nav a:hover { background-color: #E9C46A; color: #09251C; }
 .sub-label { font-size: 0.9rem; color: #666; }
 .btn-submit { background-color: #249D8F; color: white; padding: 12px; border: none; border-radius: 4px; cursor: pointer; width: fit-content; font-size: 1.1rem; margin-top: 15px; }
 
-/* Responsive */
+/* Responsive (แก้ไขการแสดงผลมือถือ) */
 @media (max-width: 768px) {
-    .container { width: 90%; }
-    nav .nav-right { flex-direction: column; gap: 10px; display: none; }
-    nav a { padding: 5px; font-size: 0.9rem;}
+    .container { width: 95%; }
+    
+    /* แก้ไข Nav หาย ให้โผล่มาเป็นแบบปัดเลื่อนได้หรือจัดเรียงใหม่ */
+    .nav-wrapper { flex-direction: column; gap: 10px; align-items: flex-start;}
+    nav .nav-right { 
+        display: flex; 
+        flex-wrap: wrap; 
+        gap: 10px; 
+        width: 100%; 
+        overflow-x: auto; /* เลื่อนซ้ายขวาได้ */
+        padding-bottom: 5px;
+    }
+    nav a { padding: 6px 10px; font-size: 0.9rem; }
+    
+    /* ปรับขนาดส่วนอื่นๆ ให้พอดีมือถือ */
+    #banner { padding: 40px 15px; }
+    #banner header { font-size: 1.5rem; }
+    .content-section { padding: 25px 15px; }
+    
+    /* ลดความกว้างของการ์ดในมือถือเล็กน้อย */
+    .slider-card { flex: 0 0 240px; height: 250px; }
+    
+    .modal-header h2 { font-size: 1.4rem; }
+    .modal-details { font-size: 0.95rem; }
 }

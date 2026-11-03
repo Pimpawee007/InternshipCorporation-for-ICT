@@ -14,24 +14,31 @@
         
         #adminPanel { display: none; }
         .table-responsive { overflow-x: auto; margin-top: 20px;}
-        table { width: 100%; border-collapse: collapse; min-width: 600px; table-layout: fixed;}
+        table { width: 100%; border-collapse: collapse; min-width: 700px; table-layout: fixed;}
         th, td { border: 1px solid #eee; padding: 12px; text-align: left; vertical-align: top;}
         th { background-color: #09251C; color: #fff; }
         
-        /* Column widths */
         th:nth-child(1) { width: 25%; }
-        th:nth-child(2) { width: 10%; }
-        th:nth-child(3) { width: 30%; }
-        th:nth-child(4) { width: 25%; }
-        th:nth-child(5) { width: 10%; }
+        th:nth-child(2) { width: 15%; }
+        th:nth-child(3) { width: 25%; }
+        th:nth-child(4) { width: 20%; }
+        th:nth-child(5) { width: 15%; } /* จัดการ */
 
-        /* Break long texts in cells */
         .cell-break { word-wrap: break-word; overflow-wrap: break-word; word-break: break-word; hyphens: auto; }
         .link-break { word-break: break-all; color: #249D8F; text-decoration: none;}
         .link-break:hover { text-decoration: underline; }
 
-        .btn-del { background-color: #ff3b3b; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
+        .btn-edit { background-color: #E9C46A; color: #000; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; margin-right: 5px; font-weight: bold;}
+        .btn-del { background-color: #ff3b3b; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;}
         .header-flex { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;}
+
+        /* ฟอร์มแก้ไข */
+        .edit-modal-content { background:#fff; padding:25px; border-radius:12px; max-width:550px; width:90%; margin: 20px auto; max-height:85vh; overflow-y:auto; border: 2px solid #000; }
+        .edit-form label { font-weight: bold; margin-top: 10px; display: block; color: #333;}
+        .edit-form input, .edit-form textarea, .edit-form select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; margin-top: 5px; font-family: inherit;}
+        .edit-actions { display: flex; gap: 15px; margin-top: 20px; }
+        .btn-save { background: #249D8F; color: #fff; padding: 12px; border: none; border-radius: 6px; cursor: pointer; flex: 1; font-weight: bold;}
+        .btn-cancel { background: #ff3b3b; color: #fff; padding: 12px; border: none; border-radius: 6px; cursor: pointer; flex: 1; font-weight: bold;}
     </style>
 </head>
 <body style="background-color: #F8EADC;">
@@ -72,8 +79,55 @@
         </div>
     </div>
 
+    <!-- Edit Modal -->
+    <div id="editModal" class="modal">
+        <div class="edit-modal-content">
+            <h3 style="border-bottom: 2px solid #E9C46A; padding-bottom: 10px;">✏️ แก้ไขข้อมูลบริษัท</h3>
+            <form id="editForm" class="edit-form">
+                <input type="hidden" id="editId">
+                
+                <label>ชื่อบริษัท</label>
+                <input type="text" id="editName" required>
+                
+                <label>สถานที่ตั้ง</label>
+                <input type="text" id="editLoc" required>
+                
+                <label>ประเภท (Sector)</label>
+                <select id="editSector" required>
+                    <option value="เอกชน">เอกชน</option>
+                    <option value="ภาครัฐ">ภาครัฐ</option>
+                    <option value="รัฐวิสาหกิจ">รัฐวิสาหกิจ</option>
+                </select>
+                
+                <label>คำอธิบายพอสังเขป</label>
+                <textarea id="editDesc" rows="3"></textarea>
+                
+                <label>ค่าตอบแทน</label>
+                <input type="text" id="editPay">
+                
+                <label>ตำแหน่งงานที่เปิดรับ</label>
+                <input type="text" id="editPos">
+                
+                <label>ระยะเวลา</label>
+                <input type="text" id="editTime">
+                
+                <label>ช่องทางติดต่อ</label>
+                <input type="text" id="editContact">
+                
+                <label>Tags สำหรับค้นหา (คั่นด้วยลูกน้ำ ,)</label>
+                <input type="text" id="editTags" placeholder="เช่น ภาคกลาง, มีค่าตอบแทน">
+                
+                <div class="edit-actions">
+                    <button type="submit" class="btn-save">บันทึกการแก้ไข</button>
+                    <button type="button" class="btn-cancel" onclick="closeEditModal()">ยกเลิก</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         const API_URL = '/api';
+        let companiesCache = [];
 
         if (sessionStorage.getItem('adminToken')) {
             showPanel();
@@ -116,11 +170,11 @@
 
         async function loadData() {
             const res = await fetch(`${API_URL}/companies`);
-            const companies = await res.json();
+            companiesCache = await res.json();
             const tbody = document.getElementById('companyTableBody');
             tbody.innerHTML = '';
             
-            companies.forEach(c => {
+            companiesCache.forEach(c => {
                 let contactHTML = '-';
                 if(c.contact) {
                     if(c.contact.startsWith('http') || c.contact.startsWith('www.')) {
@@ -138,6 +192,7 @@
                         <td class="cell-break">${c.loc}</td>
                         <td class="cell-break">${contactHTML}</td>
                         <td>
+                            <button class="btn-edit" onclick="openEditModal('${c.id}')">แก้ไข</button>
                             <button class="btn-del" onclick="deleteCompany('${c.id}')">ลบ</button>
                         </td>
                     </tr>
@@ -151,6 +206,68 @@
                 loadData();
             }
         }
+
+        function openEditModal(id) {
+            const data = companiesCache.find(c => c.id === id);
+            if (!data) return;
+
+            document.getElementById('editId').value = data.id;
+            document.getElementById('editName').value = data.name || '';
+            document.getElementById('editLoc').value = data.loc || '';
+            document.getElementById('editSector').value = data.sector || 'เอกชน';
+            document.getElementById('editDesc').value = data.desc || '';
+            document.getElementById('editPay').value = data.pay || '';
+            document.getElementById('editPos').value = data.pos || '';
+            document.getElementById('editTime').value = data.time || '';
+            document.getElementById('editContact').value = data.contact || '';
+            
+            const tagsStr = data.tags ? data.tags.join(', ') : '';
+            document.getElementById('editTags').value = tagsStr;
+
+            document.getElementById('editModal').style.display = 'flex';
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').style.display = 'none';
+        }
+
+        document.getElementById('editForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editId').value;
+            
+            const rawTags = document.getElementById('editTags').value;
+            const tagsArray = rawTags.split(',').map(t => t.trim()).filter(t => t.length > 0);
+
+            const payload = {
+                name: document.getElementById('editName').value,
+                loc: document.getElementById('editLoc').value,
+                sector: document.getElementById('editSector').value,
+                desc: document.getElementById('editDesc').value,
+                pay: document.getElementById('editPay').value,
+                pos: document.getElementById('editPos').value,
+                time: document.getElementById('editTime').value,
+                contact: document.getElementById('editContact').value,
+                tags: tagsArray
+            };
+
+            try {
+                const res = await fetch(`${API_URL}/companies/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await res.json();
+                if(result.success) {
+                    alert('แก้ไขข้อมูลเรียบร้อยแล้ว!');
+                    closeEditModal();
+                    loadData();
+                } else {
+                    alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+                }
+            } catch (err) {
+                alert('ไม่สามารถเชื่อมต่อ Server ได้');
+            }
+        });
     </script>
 </body>
 </html>
