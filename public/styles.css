@@ -17,6 +17,7 @@ nav a { text-decoration: none; color: #FDF0D5; padding: 8px 12px; border-radius:
 nav a:hover { background-color: #E9C46A; color: #09251C; }
 .btn-admin-nav { background-color: #249D8F; color: white !important; font-weight: bold; border-radius: 4px; }
 .btn-admin-nav:hover { background-color: #1a786d; }
+.hamburger { display: none; background: none; border: none; color: #FDF0D5; font-size: 1.8rem; cursor: pointer; padding: 0 10px; }
 
 /* Banner */
 #banner { text-align: center; padding: 60px 20px; background-color: #2C5745; color: #F8EADC; border-radius: 0 0 16px 16px; margin-bottom: 40px; }
@@ -187,17 +188,22 @@ nav a:hover { background-color: #E9C46A; color: #09251C; }
 @media (max-width: 768px) {
     .container { width: 95%; }
     
-    /* แก้ไข Nav หาย ให้โผล่มาเป็นแบบปัดเลื่อนได้หรือจัดเรียงใหม่ */
-    .nav-wrapper { flex-direction: column; gap: 10px; align-items: flex-start;}
+    /* Toggle Hamburger Menu Setup */
+    .nav-wrapper { flex-direction: row; justify-content: space-between; align-items: center; flex-wrap: wrap;}
+    .hamburger { display: block; } /* โชว์ปุ่มสามขีดบนมือถือ */
     nav .nav-right { 
-        display: flex; 
-        flex-wrap: wrap; 
-        gap: 10px; 
+        display: none; /* ซ่อนเมนูไว้เป็นค่าเริ่มต้น */
+        flex-direction: column; 
         width: 100%; 
-        overflow-x: auto; /* เลื่อนซ้ายขวาได้ */
-        padding-bottom: 5px;
+        gap: 10px; 
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid rgba(255, 255, 255, 0.2);
     }
-    nav a { padding: 6px 10px; font-size: 0.9rem; }
+    nav .nav-right.active { 
+        display: flex; /* แสดงเมนูเมื่อถูกกด */
+    }
+    nav a { padding: 10px; font-size: 1rem; text-align: center; width: 100%; }
     
     /* ปรับขนาดส่วนอื่นๆ ให้พอดีมือถือ */
     #banner { padding: 40px 15px; }

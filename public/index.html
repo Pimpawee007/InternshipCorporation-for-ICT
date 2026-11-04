@@ -17,7 +17,9 @@
             <div class="nav-left">
                 <a href="admin.html" class="btn-admin-nav">🔑 Admin</a>
             </div>
-            <div class="nav-right">
+            <!-- ปุ่ม Hamburger สำหรับหน้าจอมือถือ -->
+            <button class="hamburger" id="hamburgerMenu">☰</button>
+            <div class="nav-right" id="navLinks">
                 <a href="#find">ค้นหาบริษัท (Find)</a>
                 <a href="#add">เพิ่มข้อมูลบริษัท (Add)</a>
                 <a href="#more">ข้อมูลเพิ่มเติม (More info)</a>
@@ -43,6 +45,7 @@
             
             <h3 class="slider-title">ภาครัฐ</h3>
             <div class="slider-wrapper">
+                <button class="slider-btn prev-btn" onclick="slidePrev('sliderGov')">&lt;</button>
                 <div class="slider-container" id="sliderGov">
                     <p class="loading-text">กำลังโหลดข้อมูล...</p>
                 </div>
@@ -52,6 +55,7 @@
             <!-- เพิ่ม Section รัฐวิสาหกิจ -->
             <h3 class="slider-title" style="border-left-color: purple;">รัฐวิสาหกิจ</h3>
             <div class="slider-wrapper">
+                <button class="slider-btn prev-btn" onclick="slidePrev('sliderState')">&lt;</button>
                 <div class="slider-container" id="sliderState">
                     <p class="loading-text">กำลังโหลดข้อมูล...</p>
                 </div>
@@ -60,6 +64,7 @@
 
             <h3 class="slider-title">เอกชน</h3>
             <div class="slider-wrapper">
+                <button class="slider-btn prev-btn" onclick="slidePrev('sliderPrivate')">&lt;</button>
                 <div class="slider-container" id="sliderPrivate">
                     <p class="loading-text">กำลังโหลดข้อมูล...</p>
                 </div>

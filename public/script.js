@@ -68,6 +68,15 @@ function slideNext(containerId) {
     document.getElementById(containerId).scrollBy({ left: scrollAmount, behavior: 'smooth' });
 }
 
+function slidePrev(containerId) {
+    document.getElementById(containerId).scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+}
+
+// Hamburger Menu Toggle
+document.getElementById('hamburgerMenu').addEventListener('click', function() {
+    document.getElementById('navLinks').classList.toggle('active');
+});
+
 function openDetailsModal(companyId) {
     const data = companyData.find(c => c.id === companyId);
     if (!data) return;
@@ -114,7 +123,7 @@ function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 document.getElementById('btnOpenFilter').addEventListener('click', () => openModal('filterModal'));
 document.getElementById('btnCancelFilter').addEventListener('click', () => closeModal('filterModal'));
 
-// ตรรกะการกรอง (เจาะจงมากขึ้น)
+// ตรรกะการกรอง
 document.getElementById('btnApplyFilter').addEventListener('click', () => {
     const checkedBoxes = Array.from(document.querySelectorAll('.checkbox-grid input:checked')).map(cb => cb.value);
     
@@ -125,7 +134,6 @@ document.getElementById('btnApplyFilter').addEventListener('click', () => {
     }
 
     const sectorKeywords = ['ภาครัฐ', 'เอกชน', 'รัฐวิสาหกิจ'];
-    // แยกหมวดหมู่ Sector กับ Tag อื่นๆ
     const selectedSectors = checkedBoxes.filter(val => sectorKeywords.includes(val));
     const selectedOtherTags = checkedBoxes.filter(val => !sectorKeywords.includes(val));
 
@@ -133,12 +141,10 @@ document.getElementById('btnApplyFilter').addEventListener('click', () => {
         let passSector = true;
         let passOther = true;
 
-        // ถ้ามีการเลือก Sector ต้องตรงกับ Sector ที่เลือกเท่านั้น
         if (selectedSectors.length > 0) {
             passSector = selectedSectors.includes(company.sector);
         }
 
-        // ถ้ามีการเลือก Tag อื่นๆ (เช่น มีค่าตอบแทน, ภาคกลาง) ต้องมี Tag นั้นอย่างน้อย 1 อัน
         if (selectedOtherTags.length > 0) {
             if (!company.tags) passOther = false;
             else {
@@ -204,7 +210,6 @@ document.getElementById('addCompanyForm').addEventListener('submit', async (e) =
         tags.push('มีค่าตอบแทน');
     } else if (pType === 'agreed') {
         payStr = 'ตามแต่ตกลง';
-        // การเลือก "ตามแต่ตกลง" ให้นับรวมใน tag มีค่าตอบแทน
         tags.push('มีค่าตอบแทน');
     } else {
         payStr = 'ไม่มีค่าตอบแทน';
