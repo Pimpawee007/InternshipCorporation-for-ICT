@@ -36,7 +36,7 @@ const Company = mongoose.model('Company', companySchema);
 // Admin Credentials (เพิ่มแอดมินใหม่)
 const admins = [
     { username: 'CodeLyxn', password: 'mhiyoklnwza888' },
-    { username: 'Peerapat_pun', password: 'gyoza888' }
+    { username: 'Peerapat_pun', password: 'gyoza888' },
 ];
 
 // --- Routes ---
