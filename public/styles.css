@@ -1557,7 +1557,7 @@ td.td-actions::before { display: none; }
 .card-title .company-name { min-height: 0; font-size: 1rem; }
 .card-title .location { margin-top: 2px; font-size: .85rem; }
 
-.btn-save {
+.btn-heart {
     display: grid;
     place-items: center;
     width: 36px;
@@ -1569,10 +1569,10 @@ td.td-actions::before { display: none; }
     color: #9AB0AD;
     transition: background-color .2s, color .2s, transform .15s var(--ease);
 }
-.btn-save .icon { width: 20px; height: 20px; }
-.btn-save:hover { background: #FDECF0; color: #E0607E; }
-.btn-save.is-saved { color: #E0607E; }
-.btn-save.is-saved .icon { fill: currentColor; animation: heartPop .35s var(--ease); }
+.btn-heart .icon { width: 20px; height: 20px; }
+.btn-heart:hover { background: #FDECF0; color: #E0607E; }
+.btn-heart.is-saved { color: #E0607E; }
+.btn-heart.is-saved .icon { fill: currentColor; animation: heartPop .35s var(--ease); }
 @keyframes heartPop { 50% { transform: scale(1.25); } }
 
 .card-pills { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }

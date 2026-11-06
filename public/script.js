@@ -116,7 +116,7 @@ function cardHTML(company) {
                     <h4 class="company-name">${escapeHTML(company.name)}</h4>
                     <p class="location">${icon('pin')}<span>${escapeHTML(company.loc)}</span></p>
                 </div>
-                <button type="button" class="btn-save ${isSaved ? 'is-saved' : ''}" data-save="${id}" aria-pressed="${isSaved}" aria-label="บันทึก ${escapeHTML(company.name)}">${icon('heart')}</button>
+                <button type="button" class="btn-heart ${isSaved ? 'is-saved' : ''}" data-save="${id}" aria-pressed="${isSaved}" aria-label="บันทึก ${escapeHTML(company.name)}">${icon('heart')}</button>
             </div>
             <div class="card-pills">
                 <span class="sector-tag ${sectorCls}">${escapeHTML(company.sector)}</span>
