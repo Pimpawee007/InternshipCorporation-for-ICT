@@ -12,40 +12,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="common.js" defer></script>
     <script src="script.js" defer></script>
 </head>
 <body>
-    <!-- SVG icon sprite (Lucide style) -->
-    <svg class="icon-sprite" aria-hidden="true" focusable="false">
-        <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
-        <symbol id="i-filter" viewBox="0 0 24 24"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></symbol>
-        <symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></symbol>
-        <symbol id="i-coins" viewBox="0 0 24 24"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/></symbol>
-        <symbol id="i-briefcase" viewBox="0 0 24 24"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/></symbol>
-        <symbol id="i-calendar" viewBox="0 0 24 24"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></symbol>
-        <symbol id="i-phone" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
-        <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></symbol>
-        <symbol id="i-landmark" viewBox="0 0 24 24"><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/></symbol>
-        <symbol id="i-factory" viewBox="0 0 24 24"><path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M17 18h1"/><path d="M12 18h1"/><path d="M7 18h1"/></symbol>
-        <symbol id="i-building" viewBox="0 0 24 24"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></symbol>
-        <symbol id="i-chev-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
-        <symbol id="i-chev-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
-        <symbol id="i-chev-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
-        <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
-        <symbol id="i-key" viewBox="0 0 24 24"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></symbol>
-        <symbol id="i-plus" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></symbol>
-        <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
-        <symbol id="i-mail" viewBox="0 0 24 24"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></symbol>
-        <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></symbol>
-        <symbol id="i-tag" viewBox="0 0 24 24"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/></symbol>
-        <symbol id="i-cap" viewBox="0 0 24 24"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/></symbol>
-        <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></symbol>
-    </svg>
-
     <nav class="topbar">
         <div class="container nav-wrapper">
             <div class="nav-left">
-                <a href="#banner" class="brand" aria-label="Internship ICT หน้าแรก">
+                <a href="index.html" class="brand" aria-label="Internship ICT หน้าแรก">
                     <img src="assets/memo-head.webp" alt="" width="36" height="36">
                     <span>Internship <b>ICT</b></span>
                 </a>
@@ -54,7 +28,7 @@
             <button class="hamburger" id="hamburgerMenu" aria-label="เมนู"><svg class="icon"><use href="#i-menu"/></svg></button>
             <div class="nav-right" id="navLinks">
                 <a href="#find">ค้นหาบริษัท (Find)</a>
-                <a href="#add">เพิ่มข้อมูลบริษัท (Add)</a>
+                <a href="add.html">เพิ่มข้อมูลบริษัท (Add)</a>
                 <a href="#more">ข้อมูลเพิ่มเติม (More info)</a>
                 <a href="#contact-section">ติดต่อคณะ (Contact)</a>
             </div>
@@ -71,7 +45,7 @@
                 <p id="rouy">ICT Internship</p>
                 <div class="banner-actions">
                     <a href="#find" class="btn-primary btn-light"><svg class="icon"><use href="#i-search"/></svg>ค้นหาบริษัท</a>
-                    <a href="#add" class="btn-ghost-light"><svg class="icon"><use href="#i-plus"/></svg>แชร์บริษัท</a>
+                    <a href="add.html" class="btn-ghost-light"><svg class="icon"><use href="#i-plus"/></svg>แชร์บริษัท</a>
                 </div>
             </div>
             <div class="banner-memo">
@@ -84,16 +58,32 @@
             <div class="section-head">
                 <div>
                     <h2>ค้นหาบริษัท</h2>
-                    <p class="section-sub">เลื่อนดูตามประเภท หรือค้นหาด้วยชื่อและ Tag</p>
+                    <p class="section-sub">เลื่อนดูตามประเภท หรือค้นหาด้วยชื่อ ตำแหน่ง และ Tag</p>
                 </div>
             </div>
             <div class="search-bar">
                 <label class="search-field">
                     <svg class="icon"><use href="#i-search"/></svg>
-                    <input type="text" id="searchInput" placeholder="ค้นหาด้วยชื่อบริษัท..." enterkeyhint="search">
+                    <input type="text" id="searchInput" placeholder="ค้นหาชื่อบริษัท ตำแหน่ง หรือสถานที่..." enterkeyhint="search">
                 </label>
-                <button class="btn-filter" id="btnOpenFilter"><svg class="icon"><use href="#i-filter"/></svg>กรองด้วย Tag</button>
+                <button class="btn-filter" id="btnOpenFilter"><svg class="icon"><use href="#i-filter"/></svg>กรองด้วย Tag<span class="filter-count hidden" id="filterCount"></span></button>
                 <button class="btn-search" id="btnSearch">ค้นหา</button>
+            </div>
+
+            <div class="list-toolbar">
+                <label class="sort-field">
+                    <svg class="icon"><use href="#i-sort"/></svg>
+                    <span class="visually-hidden">เรียงตาม</span>
+                    <select id="sortSelect">
+                        <option value="newest">เพิ่มล่าสุด</option>
+                        <option value="closing">ใกล้ปิดรับสมัคร</option>
+                        <option value="rating">คะแนนรีวิวสูงสุด</option>
+                        <option value="name">ชื่อ ก-ฮ / A-Z</option>
+                    </select>
+                </label>
+                <button type="button" class="chip-toggle" id="btnSavedOnly" aria-pressed="false">
+                    <svg class="icon"><use href="#i-heart"/></svg>ที่บันทึกไว้<span class="saved-count" id="savedCount"></span>
+                </button>
             </div>
 
             <!-- Memo: แสดงเมื่อค้นหาแล้วไม่เจอ หรือโหลดข้อมูลไม่ได้ -->
@@ -101,7 +91,7 @@
                 <img src="assets/character/confused-404.webp" alt="Memo กำลังงงเพราะหาไม่เจอ" width="445" height="560">
                 <div>
                     <p class="memo-state-title" id="memoNoticeText">อ๊ะ Memo หาไม่เจอเลย ลองเปลี่ยนคำค้นดูนะ</p>
-                    <button type="button" class="btn-text" id="btnClearSearch">ล้างการค้นหา</button>
+                    <button type="button" class="btn-text" id="btnClearSearch">ล้างการค้นหาและตัวกรอง</button>
                 </div>
             </div>
 
@@ -158,101 +148,14 @@
             </div>
         </section>
 
-        <section id="add" class="content-section">
-            <div class="section-head add-head">
-                <div>
-                    <h2>เพิ่มข้อมูลบริษัท</h2>
-                    <p class="section-sub">ช่วยกันแชร์ที่ฝึกงานดี ๆ ให้รุ่นน้องและเพื่อน ๆ</p>
-                </div>
-                <div class="add-memo">
-                    <div class="speech-bubble bubble-left">รู้จักบริษัทดี ๆ?<br>แชร์ให้เพื่อนหน่อย!</div>
-                    <img src="assets/character/thumbs-up.webp" alt="Memo กำลังยกนิ้วโป้งให้" width="455" height="560">
-                </div>
+        <!-- ชวนแชร์บริษัท (ฟอร์มย้ายไปหน้า add.html แล้ว) -->
+        <section class="content-section share-cta">
+            <img src="assets/character/thumbs-up.webp" alt="Memo กำลังยกนิ้วโป้งให้" width="455" height="560">
+            <div class="share-cta-text">
+                <h2>รู้จักบริษัทดี ๆ? แชร์ให้เพื่อนหน่อย!</h2>
+                <p>ใช้เวลาไม่ถึง 1 นาที แอดมินจะตรวจสอบก่อนขึ้นเว็บ</p>
             </div>
-
-            <form class="add-form" id="addCompanyForm">
-                <fieldset class="form-card">
-                    <legend><svg class="icon"><use href="#i-building"/></svg>ข้อมูลหลัก</legend>
-                    <div class="form-group">
-                        <label for="addName">ชื่อบริษัท</label>
-                        <input type="text" id="addName" placeholder="กรอกชื่อบริษัท" required>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="addLoc">สถานที่ตั้ง</label>
-                            <input type="text" id="addLoc" placeholder="เขต, จังหวัด หรือ แนวรถไฟฟ้า" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="addSector">ประเภทบริษัท (Sector)</label>
-                            <select id="addSector" required>
-                                <option value="เอกชน">เอกชน</option>
-                                <option value="ภาครัฐ">ภาครัฐ</option>
-                                <option value="รัฐวิสาหกิจ">รัฐวิสาหกิจ</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <span class="label">เลือก Tag เพิ่มเติมสำหรับการค้นหา</span>
-                        <div class="add-tag-grid chip-group">
-                            <label class="chip"><input type="checkbox" name="addTags" value="ภาคกลาง"><span>ภาคกลาง</span></label>
-                            <label class="chip"><input type="checkbox" name="addTags" value="ต่างจังหวัด"><span>ต่างจังหวัด</span></label>
-                            <label class="chip"><input type="checkbox" name="addTags" value="ต่างประเทศ"><span>ต่างประเทศ</span></label>
-                            <label class="chip"><input type="checkbox" name="addTags" value="รับฝึกมากกว่า 2 เดือน"><span>รับฝึกมากกว่า 2 เดือน</span></label>
-                        </div>
-                    </div>
-                </fieldset>
-
-                <button type="button" class="btn-toggle" id="btnToggleExtra" aria-expanded="false" aria-controls="extraFields">
-                    <svg class="icon chevron"><use href="#i-chev-down"/></svg><span class="toggle-label">เพิ่มเติม</span>
-                </button>
-
-                <div id="extraFields" class="hidden">
-                    <fieldset class="form-card">
-                        <legend><svg class="icon"><use href="#i-file"/></svg>รายละเอียดเพิ่มเติม</legend>
-                        <div class="form-group">
-                            <label for="addDesc">คำอธิบายพอสังเขป</label>
-                            <textarea id="addDesc" rows="3" placeholder="ลักษณะงานเบื้องต้น"></textarea>
-                        </div>
-
-                        <div class="form-group">
-                            <span class="label">ค่าตอบแทน</span>
-                            <div class="radio-group chip-group">
-                                <label class="chip"><input type="radio" name="payType" value="amount"><span>กรอกจำนวน</span></label>
-                                <label class="chip"><input type="radio" name="payType" value="agreed"><span>ตามแต่ตกลง</span></label>
-                                <label class="chip"><input type="radio" name="payType" value="none" checked><span>ไม่มี</span></label>
-                            </div>
-                            <input type="text" id="payAmountInput" class="hidden mt-2" placeholder="เช่น 12,000 - 15,000 บาท/เดือน">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="addPos">ตำแหน่งงานที่เปิดรับ (ระบุได้หลายตำแหน่ง)</label>
-                            <input type="text" id="addPos" placeholder="เช่น IT Support, Software Tester">
-                        </div>
-
-                        <div class="form-group">
-                            <span class="label">ระยะเวลาการรับสมัคร</span>
-                            <div class="date-group">
-                                <div>
-                                    <label class="sub-label" for="addTimeStart">วันที่เริ่ม</label>
-                                    <input type="date" id="addTimeStart">
-                                </div>
-                                <div>
-                                    <label class="sub-label" for="addTimeEnd">วันที่สิ้นสุด</label>
-                                    <input type="date" id="addTimeEnd">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="addContact">ช่องทางติดต่อ (Email / Website / Phone)</label>
-                            <input type="text" id="addContact" placeholder="กรอกข้อมูลติดต่อ">
-                        </div>
-                    </fieldset>
-                </div>
-
-                <button type="submit" class="btn-submit" id="btnSubmitAdd">บันทึกข้อมูล</button>
-            </form>
+            <a href="add.html" class="btn-primary"><svg class="icon"><use href="#i-plus"/></svg>เพิ่มข้อมูลบริษัท</a>
         </section>
 
         <div class="info-grid">
@@ -278,7 +181,7 @@
     <!-- Bottom tab bar (มือถือ) -->
     <nav class="tabbar" aria-label="เมนูหลัก">
         <a href="#find" class="tab active" data-tab="find"><svg class="icon"><use href="#i-search"/></svg><span>ค้นหา</span></a>
-        <a href="#add" class="tab" data-tab="add"><svg class="icon"><use href="#i-plus"/></svg><span>เพิ่ม</span></a>
+        <a href="add.html" class="tab" data-tab="add"><svg class="icon"><use href="#i-plus"/></svg><span>เพิ่ม</span></a>
         <a href="#more" class="tab" data-tab="more"><svg class="icon"><use href="#i-info"/></svg><span>ข้อมูล</span></a>
         <a href="#contact-section" class="tab" data-tab="contact-section"><svg class="icon"><use href="#i-mail"/></svg><span>ติดต่อ</span></a>
     </nav>
@@ -290,18 +193,46 @@
                 <img src="assets/character/thinking.webp" alt="Memo กำลังคิด" width="435" height="560">
                 <div class="speech-bubble bubble-left">อยากได้ที่ฝึกงานแบบไหนดีน้า~</div>
             </div>
-            <h3>FIND BY TAG</h3>
+            <div class="filter-title-row">
+                <h3>FIND BY TAG</h3>
+                <button type="button" class="btn-text" id="btnResetFilter">ล้างทั้งหมด</button>
+            </div>
             <div class="filter-body">
-                <div class="checkbox-grid chip-group">
-                    <label class="chip"><input type="checkbox" value="ภาครัฐ"><span>ภาครัฐ</span></label>
-                    <label class="chip"><input type="checkbox" value="เอกชน"><span>เอกชน</span></label>
-                    <label class="chip"><input type="checkbox" value="รัฐวิสาหกิจ"><span>รัฐวิสาหกิจ</span></label>
-                    <label class="chip"><input type="checkbox" value="มีค่าตอบแทน"><span>มีค่าตอบแทน</span></label>
-                    <label class="chip"><input type="checkbox" value="ภาคกลาง"><span>ภาคกลาง</span></label>
-                    <label class="chip"><input type="checkbox" value="ต่างจังหวัด"><span>ต่างจังหวัด</span></label>
-                    <label class="chip"><input type="checkbox" value="ต่างประเทศ"><span>ต่างประเทศ</span></label>
-                    <label class="chip"><input type="checkbox" value="รับฝึกมากกว่า 2 เดือน"><span>รับฝึกมากกว่า 2 เดือน</span></label>
+                <div class="filter-group">
+                    <h4>ประเภทบริษัท</h4>
+                    <div class="checkbox-grid chip-group" data-group="sector">
+                        <label class="chip"><input type="checkbox" data-group="sector" value="ภาครัฐ"><span>ภาครัฐ</span></label>
+                        <label class="chip"><input type="checkbox" data-group="sector" value="เอกชน"><span>เอกชน</span></label>
+                        <label class="chip"><input type="checkbox" data-group="sector" value="รัฐวิสาหกิจ"><span>รัฐวิสาหกิจ</span></label>
+                    </div>
                 </div>
+                <div class="filter-group">
+                    <h4>สถานะรับสมัคร</h4>
+                    <div class="checkbox-grid chip-group" data-group="status">
+                        <label class="chip"><input type="checkbox" data-group="status" value="open"><span>เปิดรับอยู่</span></label>
+                        <label class="chip"><input type="checkbox" data-group="status" value="closing"><span>ใกล้ปิดรับ</span></label>
+                        <label class="chip"><input type="checkbox" data-group="status" value="upcoming"><span>ยังไม่เปิดรับ</span></label>
+                    </div>
+                </div>
+                <div class="filter-group">
+                    <h4>ตำแหน่งงาน</h4>
+                    <div class="checkbox-grid chip-group" id="filterPositions" data-group="position"></div>
+                </div>
+                <div class="filter-group">
+                    <h4>รูปแบบการทำงาน</h4>
+                    <div class="checkbox-grid chip-group" id="filterWorkmode" data-group="workmode"></div>
+                </div>
+                <div class="filter-group">
+                    <h4>อื่น ๆ</h4>
+                    <div class="checkbox-grid chip-group" data-group="other">
+                        <label class="chip"><input type="checkbox" data-group="other" value="มีค่าตอบแทน"><span>มีค่าตอบแทน</span></label>
+                        <label class="chip"><input type="checkbox" data-group="other" value="ภาคกลาง"><span>ภาคกลาง</span></label>
+                        <label class="chip"><input type="checkbox" data-group="other" value="ต่างจังหวัด"><span>ต่างจังหวัด</span></label>
+                        <label class="chip"><input type="checkbox" data-group="other" value="ต่างประเทศ"><span>ต่างประเทศ</span></label>
+                        <label class="chip"><input type="checkbox" data-group="other" value="รับฝึกมากกว่า 2 เดือน"><span>รับฝึกมากกว่า 2 เดือน</span></label>
+                    </div>
+                </div>
+                <p class="filter-hint">ในหมวดเดียวกัน = ตรงข้อไหนก็ได้ · ต่างหมวด = ต้องตรงทุกหมวด</p>
                 <div class="filter-actions">
                     <button class="btn-filter-cancel" id="btnCancelFilter">ยกเลิก</button>
                     <button class="btn-filter-submit" id="btnApplyFilter">ค้นหา</button>
@@ -316,10 +247,14 @@
             <button class="close-btn" onclick="closeModal('companyModal')" aria-label="ปิด"><svg class="icon"><use href="#i-x"/></svg></button>
 
             <div class="modal-header">
-                <div class="modal-avatar"><img src="assets/character/happy.webp" alt="Memo กำลังดีใจ" width="560" height="518"></div>
+                <div id="modalLogo"></div>
                 <div class="modal-title">
-                    <span id="modalSectorTag" class="sector-tag">ประเภท</span>
+                    <div class="modal-pills">
+                        <span id="modalSectorTag" class="sector-tag">ประเภท</span>
+                        <span id="modalStatus"></span>
+                    </div>
                     <h2 id="modalCompanyName" class="break-text">ชื่อบริษัท</h2>
+                    <button type="button" class="btn-save-text" id="modalSaveBtn" aria-pressed="false"><svg class="icon"><use href="#i-heart"/></svg><span>บันทึกไว้ดูทีหลัง</span></button>
                 </div>
             </div>
 
@@ -331,6 +266,74 @@
                     <div class="detail-row"><span class="detail-icon"><svg class="icon"><use href="#i-briefcase"/></svg></span><p><strong>ตำแหน่งงานที่เปิดรับ</strong> <span id="modalPos" class="break-text"></span></p></div>
                     <div class="detail-row"><span class="detail-icon"><svg class="icon"><use href="#i-calendar"/></svg></span><p><strong>ระยะเวลาการรับสมัคร</strong> <span id="modalTime" class="break-text"></span></p></div>
                     <div class="detail-row"><span class="detail-icon"><svg class="icon"><use href="#i-phone"/></svg></span><p><strong>ช่องทางติดต่อ</strong> <a id="modalContactLink" href="#" target="_blank" rel="noopener" class="break-text link-wrap"></a><span id="modalContactText" class="break-text"></span></p></div>
+                    <div class="modal-tags" id="modalTags"></div>
+                </div>
+
+                <!-- รีวิวจากรุ่นพี่ -->
+                <section class="reviews-section" aria-labelledby="reviewsTitle">
+                    <div class="reviews-head">
+                        <h3 id="reviewsTitle"><svg class="icon"><use href="#i-message"/></svg>รีวิวจากรุ่นพี่</h3>
+                        <div id="reviewSummary" class="review-summary"></div>
+                    </div>
+                    <div id="reviewList" class="review-list"></div>
+
+                    <button type="button" class="btn-outline-teal" id="btnWriteReview"><svg class="icon"><use href="#i-pencil"/></svg>เขียนรีวิว</button>
+
+                    <form id="reviewForm" class="review-form hidden">
+                        <div class="form-group">
+                            <span class="label">ให้คะแนนเท่าไหร่ดี?</span>
+                            <div class="star-input" role="radiogroup" aria-label="คะแนน">
+                                <input type="radio" name="rvRating" id="rv5" value="5"><label for="rv5" title="5 ดาว">★</label>
+                                <input type="radio" name="rvRating" id="rv4" value="4"><label for="rv4" title="4 ดาว">★</label>
+                                <input type="radio" name="rvRating" id="rv3" value="3"><label for="rv3" title="3 ดาว">★</label>
+                                <input type="radio" name="rvRating" id="rv2" value="2"><label for="rv2" title="2 ดาว">★</label>
+                                <input type="radio" name="rvRating" id="rv1" value="1"><label for="rv1" title="1 ดาว">★</label>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="rvRole">ตำแหน่งที่ไปฝึก</label>
+                                <input type="text" id="rvRole" placeholder="เช่น Frontend Intern" maxlength="100">
+                            </div>
+                            <div class="form-group">
+                                <label for="rvPay">ค่าตอบแทนที่ได้จริง</label>
+                                <input type="text" id="rvPay" placeholder="เช่น 15,000/เดือน หรือ ไม่มี" maxlength="100">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <span class="label">รูปแบบการทำงาน</span>
+                            <div class="chip-group" id="rvWorkmode"></div>
+                        </div>
+                        <div class="form-group">
+                            <span class="label">แนะนำให้รุ่นน้องไปไหม?</span>
+                            <div class="chip-group">
+                                <label class="chip"><input type="radio" name="rvRecommend" value="yes" checked><span>แนะนำ</span></label>
+                                <label class="chip"><input type="radio" name="rvRecommend" value="no"><span>ไม่แนะนำ</span></label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="rvText">เล่าประสบการณ์หน่อย</label>
+                            <textarea id="rvText" rows="4" maxlength="1500" placeholder="ได้ทำงานอะไรบ้าง ทีมเป็นยังไง มีอะไรอยากบอกรุ่นน้อง" required></textarea>
+                        </div>
+                        <p class="field-hint">รีวิวไม่แสดงชื่อผู้เขียน และจะขึ้นหลังแอดมินตรวจสอบ</p>
+                        <div class="form-actions">
+                            <button type="button" class="btn-filter-cancel" id="btnCancelReview">ยกเลิก</button>
+                            <button type="submit" class="btn-primary" id="btnSubmitReview"><svg class="icon"><use href="#i-send"/></svg>ส่งรีวิว</button>
+                        </div>
+                    </form>
+                </section>
+
+                <!-- แจ้งข้อมูลผิด -->
+                <div class="report-box">
+                    <button type="button" class="btn-text muted" id="btnReport"><svg class="icon"><use href="#i-flag"/></svg>แจ้งข้อมูลผิด / ไม่อัปเดต</button>
+                    <form id="reportForm" class="report-form hidden">
+                        <label for="reportText" class="label">ข้อมูลตรงไหนผิด หรือควรแก้เป็นอะไร?</label>
+                        <textarea id="reportText" rows="3" maxlength="1000" placeholder="เช่น เบอร์โทรเปลี่ยนแล้ว / ปีนี้ไม่รับนักศึกษาฝึกงาน" required></textarea>
+                        <div class="form-actions">
+                            <button type="button" class="btn-filter-cancel" id="btnCancelReport">ยกเลิก</button>
+                            <button type="submit" class="btn-primary" id="btnSubmitReport"><svg class="icon"><use href="#i-send"/></svg>ส่งให้แอดมิน</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
