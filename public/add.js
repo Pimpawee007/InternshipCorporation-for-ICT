@@ -3,7 +3,7 @@
 
 let existingCompanies = [];
 
-document.getElementById('addPositionChips').innerHTML = chipsHTML(POSITION_TAGS, { name: 'addTags' });
+const positionPicker = createPositionPicker(document.getElementById('addPositionPicker'));
 document.getElementById('addWorkmodeChips').innerHTML = chipsHTML(WORKMODE_TAGS, { name: 'addTags' });
 const stationPicker = createStationPicker(document.getElementById('addStationPicker'), { max: 4 });
 document.getElementById('addOtherChips').innerHTML = chipsHTML(OTHER_TAGS, { name: 'addTags' });
@@ -141,6 +141,7 @@ document.getElementById('addCompanyForm').addEventListener('submit', async (e) =
     }
 
     document.querySelectorAll('input[name="addTags"]:checked').forEach(t => tags.push(t.value));
+    tags.push(...positionPicker.get());
 
     const payload = {
         name: document.getElementById('addName').value.trim(),
@@ -185,6 +186,7 @@ document.getElementById('btnAddAnother').addEventListener('click', () => {
     const form = document.getElementById('addCompanyForm');
     form.reset();
     stationPicker.set([]);
+    positionPicker.set([]);
     payInput.classList.add('hidden');
     payInput.required = false;
     setExtraOpen(false);

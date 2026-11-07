@@ -95,7 +95,7 @@ async function loadData() {
             authFetch(`${API_URL}/admin/reports`)
         ]);
         if (!cRes.ok || !rRes.ok || !pRes.ok) throw new Error('server');
-        companiesCache = await cRes.json();
+        companiesCache = (await cRes.json()).map(c => ({ ...c, tags: normalizeTags(c.tags) }));
         reviewsCache = await rRes.json();
         reportsCache = await pRes.json();
         renderAll();
@@ -164,7 +164,8 @@ function contactHTML(contact) {
 // ---------------------------------------------------------------------------
 function pendingCompanyHTML(c) {
     const id = escapeHTML(c.id);
-    const tags = (c.tags || []).filter(t => t !== c.sector && !TRANSIT_TAGS.includes(t)).map(t => `<span class="mini-tag">${escapeHTML(t)}</span>`).join('');
+    const positions = (c.tags || []).filter(t => POSITION_TAGS.includes(t));
+    const tags = positions.map(positionPillHTML).join('') + (c.tags || []).filter(t => t !== c.sector && !TRANSIT_TAGS.includes(t) && !POSITION_TAGS.includes(t)).map(t => `<span class="mini-tag">${escapeHTML(t)}</span>`).join('');
     const rows = [
         ['pin', c.loc], ['phone', c.contact], ['briefcase', c.pos], ['coins', c.pay], ['calendar', c.time], ['file', c.desc]
     ].filter(([, v]) => v && v !== '-')
@@ -313,9 +314,10 @@ function resolveReport(id) {
 // ---------------------------------------------------------------------------
 // Edit modal
 // ---------------------------------------------------------------------------
-document.getElementById('editTagHint').textContent = 'Tag ที่ใช้กรองได้: ' + [...POSITION_TAGS, ...WORKMODE_TAGS, 'มีค่าตอบแทน', ...OTHER_TAGS].join(', ');
+document.getElementById('editTagHint').textContent = 'Tag ที่ใช้กรองได้: ' + [...WORKMODE_TAGS, 'มีค่าตอบแทน', ...OTHER_TAGS].join(', ') + ' (ตำแหน่งงานกับรถไฟฟ้าเลือกจากปุ่มด้านบน)';
 
 const editStationPicker = createStationPicker(document.getElementById('editStations'), { max: 6 });
+const editPositionPicker = createPositionPicker(document.getElementById('editPositions'));
 
 function openEditModal(id) {
     const data = companiesCache.find(c => c.id === id);
@@ -336,8 +338,9 @@ function openEditModal(id) {
     document.getElementById('editTimeEnd').value = iso(end);
     document.getElementById('editTime').value = end ? '' : (data.time && data.time !== '-' ? data.time : '');
     document.getElementById('editContact').value = data.contact || '';
-    document.getElementById('editTags').value = (data.tags || []).filter(t => !TRANSIT_TAGS.includes(t)).join(', ');
+    document.getElementById('editTags').value = (data.tags || []).filter(t => !TRANSIT_TAGS.includes(t) && !POSITION_TAGS.includes(t)).join(', ');
     editStationPicker.set(data.stations || []);
+    editPositionPicker.set((data.tags || []).filter(t => POSITION_TAGS.includes(t)));
 
     openModal('editModal');
 }
@@ -370,7 +373,7 @@ document.getElementById('editForm').addEventListener('submit', async (e) => {
         timeStart: tStart,
         timeEnd: tEnd,
         contact: document.getElementById('editContact').value,
-        tags: tagsArray,
+        tags: [...tagsArray, ...editPositionPicker.get()],
         stations: editStationPicker.get()
     };
 

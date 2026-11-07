@@ -13,6 +13,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="transit-data.js" defer></script>
+    <script src="tag-data.js" defer></script>
     <script src="common.js" defer></script>
     <script src="add.js" defer></script>
 </head>
@@ -87,8 +88,13 @@
                 <fieldset class="form-card">
                     <legend><svg class="icon"><use href="#i-tag"/></svg>Tag สำหรับการค้นหา</legend>
                     <div class="form-group">
-                        <span class="label">ตำแหน่งที่เปิดรับ (เลือกได้หลายอัน)</span>
-                        <div class="chip-group" id="addPositionChips"></div>
+                        <span class="label">ตำแหน่งที่เปิดรับ (เลือกได้ไม่จำกัด)</span>
+                        <p class="field-hint">เลือกหมวดก่อน แล้วกดตำแหน่ง หรือพิมพ์ค้นหาได้เลย ตำแหน่งที่เลือกจะใช้ตอนคนค้นหาในหน้าแรก</p>
+                        <div id="addPositionPicker"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="addPos">เขียนเพิ่มเติม (ไม่บังคับ)</label>
+                        <input type="text" id="addPos" maxlength="200" placeholder="ตำแหน่งที่ไม่มีในปุ่ม หรือชื่อตามประกาศ เช่น ผู้ช่วยวิจัยโปรเจกต์ FPGA">
                     </div>
                     <div class="form-group">
                         <span class="label">รูปแบบการทำงาน</span>
@@ -127,10 +133,6 @@
                             <input type="text" id="payAmountInput" class="hidden mt-2" maxlength="100" placeholder="เช่น 12,000 - 15,000 บาท/เดือน">
                         </div>
 
-                        <div class="form-group">
-                            <label for="addPos">ชื่อตำแหน่งงานที่เปิดรับ</label>
-                            <input type="text" id="addPos" maxlength="200" placeholder="เช่น IT Support, Software Tester">
-                        </div>
 
                         <div class="form-group">
                             <span class="label">ระยะเวลาการรับสมัคร</span>

@@ -10,8 +10,47 @@ const SECTOR_CLASS = {
     'รัฐวิสาหกิจ': 'state-sector'
 };
 
-// Tag ที่ใช้ทั้งหน้าเพิ่มบริษัทและตัวกรอง (แก้ที่เดียว ใช้ได้ทุกหน้า)
-const POSITION_TAGS = ['Frontend', 'Backend', 'Full-stack', 'Mobile', 'Data / AI', 'UX/UI', 'Network / Infra', 'Cybersecurity', 'QA / Tester', 'IT Support'];
+// ตำแหน่งงานมาจาก tag-data.js (ต้องโหลดไฟล์นั้นก่อน common.js)
+const POSITION_TAGS = POSITION_CATEGORIES.flatMap(c => c.items.map(i => i.name));
+const CATEGORY_BY_ID = Object.fromEntries(POSITION_CATEGORIES.map(c => [c.id, c]));
+const CATEGORY_OF_POSITION = Object.fromEntries(POSITION_CATEGORIES.flatMap(c => c.items.map(i => [i.name, c])));
+const POSITION_TH = Object.fromEntries(POSITION_CATEGORIES.flatMap(c => c.items.map(i => [i.name, i.th || ''])));
+
+// แปลง Tag ตำแหน่งชื่อเก่า (เช่น "Frontend") เป็นชื่อเต็ม และตัดตัวซ้ำ
+function normalizeTags(tags) {
+    return [...new Set((tags || []).map(t => LEGACY_POSITION_MAP[t] || t))];
+}
+
+// ตัวกรองตำแหน่ง: "Data Analyst" = ตำแหน่งเดียว, "cat:data" = ทุกตำแหน่งในหมวด
+function companyMatchesPositions(c, values) {
+    const tags = c.tags || [];
+    return values.some(v => {
+        if (v.startsWith('cat:')) {
+            const cat = CATEGORY_BY_ID[v.slice(4)];
+            return cat && tags.some(t => CATEGORY_OF_POSITION[t] === cat);
+        }
+        return tags.includes(v);
+    });
+}
+
+function positionLabel(value) {
+    if (String(value).startsWith('cat:')) {
+        const cat = CATEGORY_BY_ID[value.slice(4)];
+        return cat ? `ทุกตำแหน่งในหมวด${cat.name}` : value;
+    }
+    return value;
+}
+
+function positionColor(value) {
+    const v = String(value);
+    const cat = v.startsWith('cat:') ? CATEGORY_BY_ID[v.slice(4)] : CATEGORY_OF_POSITION[v];
+    return cat ? cat.color : '#5B7472';
+}
+
+function positionPillHTML(value) {
+    const th = POSITION_TH[value];
+    return `<span class="station-pill position-pill" style="--line:${positionColor(value)}" ${th ? `title="${escapeHTML(th)}"` : ''}><i></i>${escapeHTML(positionLabel(value))}</span>`;
+}
 const WORKMODE_TAGS = ['Onsite', 'Hybrid', 'Remote'];
 const OTHER_TAGS = ['ภาคกลาง', 'ต่างจังหวัด', 'ต่างประเทศ', 'รับฝึกมากกว่า 2 เดือน'];
 // ชื่อสายรถไฟฟ้ามาจาก transit-data.js (ต้องโหลดไฟล์นั้นก่อน common.js)
@@ -299,18 +338,32 @@ function companyMatchesTransit(c, values) {
     });
 }
 
-// ตัวเลือกสถานี: เลือกสายก่อน แล้วเลือกสถานีในสายนั้น (หรือพิมพ์ค้นหาชื่อสถานีข้ามทุกสาย)
-function createStationPicker(root, { max = 0, allowWholeLine = false, onChange = () => {} } = {}) {
+// ตัวเลือกแบบ "เลือกหมวดก่อน แล้วเลือกรายการในหมวด" + ช่องค้นหาข้ามทุกหมวด
+// ใช้กับทั้งสถานีรถไฟฟ้าและตำแหน่งงาน
+// groups: [{ id, name, color, items: [{ value, label, full, search, title }] }]
+function createCategoryPicker(root, {
+    groups,
+    max = 0,
+    wholeValue = null,          // (group) => ค่าของปุ่ม "ทั้งหมวด" (ไม่ใส่ = ไม่มีปุ่มนี้)
+    wholeLabel = 'ทั้งหมด',
+    labelOf = (v) => v,
+    colorOf = () => '#5B7472',
+    placeholder = 'ค้นหา...',
+    unit = 'รายการ',
+    onChange = () => {}
+} = {}) {
     let selected = [];
-    let activeLine = TRANSIT_LINES[0].id;
+    let active = groups[0].id;
     let query = '';
+    const byId = Object.fromEntries(groups.map(g => [g.id, g]));
+    const groupOf = (v) => groups.find(g => (wholeValue && wholeValue(g) === v) || g.items.some(it => it.value === v));
 
     root.classList.add('station-picker');
     root.innerHTML = `
-        <div class="sp-lines" role="tablist" aria-label="เลือกสายรถไฟฟ้า">
-            ${TRANSIT_LINES.map(l => `<button type="button" class="sp-line" role="tab" data-line="${l.id}" style="--line:${l.color}"><i></i>${escapeHTML(l.name)}<span class="sp-line-count"></span></button>`).join('')}
+        <div class="sp-lines" role="tablist">
+            ${groups.map(g => `<button type="button" class="sp-line" role="tab" data-line="${g.id}" style="--line:${g.color}"><i></i>${escapeHTML(g.name)}<span class="sp-line-count"></span></button>`).join('')}
         </div>
-        <label class="sp-search">${icon('search')}<input type="text" placeholder="หรือพิมพ์ชื่อสถานี เช่น อโศก, ลาดพร้าว" aria-label="ค้นหาสถานี"></label>
+        <label class="sp-search">${icon('search')}<input type="text" placeholder="${escapeHTML(placeholder)}" aria-label="${escapeHTML(placeholder)}"></label>
         <div class="sp-stations"></div>
         <div class="sp-selected" aria-live="polite"></div>`;
 
@@ -319,34 +372,35 @@ function createStationPicker(root, { max = 0, allowWholeLine = false, onChange =
 
     function render() {
         root.querySelectorAll('.sp-line').forEach(btn => {
-            const on = btn.dataset.line === activeLine && !query;
+            const on = btn.dataset.line === active && !query;
             btn.classList.toggle('active', on);
             btn.setAttribute('aria-selected', String(on));
-            const n = selected.filter(v => v.startsWith(btn.dataset.line + ':')).length;
+            const n = selected.filter(v => groupOf(v) === byId[btn.dataset.line]).length;
             btn.querySelector('.sp-line-count').textContent = n || '';
         });
 
         let items;
         if (query) {
-            items = TRANSIT_LINES.flatMap(l => l.stations
-                .filter(st => st.includes(query))
-                .map(st => ({ v: `${l.id}:${st}`, label: `${l.short} ${st}`, color: l.color }))).slice(0, 40);
+            const needle = query.toLowerCase();
+            items = groups.flatMap(g => g.items
+                .filter(it => (it.label + ' ' + (it.search || '')).toLowerCase().includes(needle))
+                .map(it => ({ ...it, label: it.full || it.label, color: g.color }))).slice(0, 40);
         } else {
-            const line = LINE_BY_ID[activeLine];
-            items = line.stations.map(st => ({ v: `${line.id}:${st}`, label: st, color: line.color }));
-            if (allowWholeLine) items.unshift({ v: `${line.id}:*`, label: 'ทุกสถานีในสายนี้', color: line.color, whole: true });
+            const g = byId[active];
+            items = g.items.map(it => ({ ...it, color: g.color }));
+            if (wholeValue) items.unshift({ value: wholeValue(g), label: wholeLabel, color: g.color, whole: true });
         }
 
         q('.sp-stations').innerHTML = items.length
             ? items.map(it => {
-                const on = selected.includes(it.v);
-                return `<button type="button" class="sp-station ${it.whole ? 'whole' : ''} ${on ? 'is-on' : ''}" data-v="${escapeHTML(it.v)}" aria-pressed="${on}" style="--line:${it.color}">${escapeHTML(it.label)}</button>`;
+                const on = selected.includes(it.value);
+                return `<button type="button" class="sp-station ${it.whole ? 'whole' : ''} ${on ? 'is-on' : ''}" data-v="${escapeHTML(it.value)}" aria-pressed="${on}" style="--line:${it.color}" ${it.title ? `title="${escapeHTML(it.title)}"` : ''}>${escapeHTML(it.label)}</button>`;
             }).join('')
-            : '<p class="sp-empty">ไม่พบสถานีชื่อนี้</p>';
+            : '<p class="sp-empty">ไม่พบที่ค้นหา</p>';
 
         q('.sp-selected').innerHTML = selected.length
             ? '<span class="sp-sel-label">เลือกแล้ว:</span>' + selected.map(v =>
-                `<button type="button" class="station-pill removable" data-rm="${escapeHTML(v)}" style="--line:${lineColor(v)}" aria-label="เอา ${escapeHTML(stationLabel(v))} ออก"><i></i>${escapeHTML(stationLabel(v))}${icon('x')}</button>`).join('')
+                `<button type="button" class="station-pill removable" data-rm="${escapeHTML(v)}" style="--line:${colorOf(v)}" aria-label="เอา ${escapeHTML(labelOf(v))} ออก"><i></i>${escapeHTML(labelOf(v))}${icon('x')}</button>`).join('')
             : '';
     }
 
@@ -354,7 +408,7 @@ function createStationPicker(root, { max = 0, allowWholeLine = false, onChange =
         if (selected.includes(v)) {
             selected = selected.filter(x => x !== v);
         } else {
-            if (max && selected.length >= max) return showToast(`เลือกได้สูงสุด ${max} สถานีนะ`, 'error');
+            if (max && selected.length >= max) return showToast(`เลือกได้สูงสุด ${max} ${unit}นะ`, 'error');
             selected = [...selected, v];
         }
         render();
@@ -362,15 +416,15 @@ function createStationPicker(root, { max = 0, allowWholeLine = false, onChange =
     }
 
     root.addEventListener('click', (e) => {
-        const line = e.target.closest('.sp-line');
-        if (line) {
-            activeLine = line.dataset.line;
+        const tab = e.target.closest('.sp-line');
+        if (tab) {
+            active = tab.dataset.line;
             query = '';
             input.value = '';
             return render();
         }
-        const st = e.target.closest('.sp-station');
-        if (st) return toggle(st.dataset.v);
+        const it = e.target.closest('.sp-station');
+        if (it) return toggle(it.dataset.v);
         const rm = e.target.closest('[data-rm]');
         if (rm) return toggle(rm.dataset.rm);
     });
@@ -383,13 +437,48 @@ function createStationPicker(root, { max = 0, allowWholeLine = false, onChange =
     return {
         get: () => [...selected],
         set(values) {
-            selected = (Array.isArray(values) ? values : []).filter(v => LINE_BY_ID[String(v).split(':')[0]]);
-            if (selected[0]) activeLine = selected[0].split(':')[0];
+            selected = (Array.isArray(values) ? values : []).filter(v => groupOf(v));
+            if (selected[0]) active = groupOf(selected[0]).id;
             query = '';
             input.value = '';
             render();
         }
     };
+}
+
+// ตัวเลือกสถานี: เลือกสายก่อน แล้วเลือกสถานีในสายนั้น
+function createStationPicker(root, { max = 0, allowWholeLine = false, onChange } = {}) {
+    return createCategoryPicker(root, {
+        groups: TRANSIT_LINES.map(l => ({
+            id: l.id, name: l.name, color: l.color,
+            items: l.stations.map(st => ({ value: `${l.id}:${st}`, label: st, full: `${l.short} ${st}` }))
+        })),
+        max,
+        wholeValue: allowWholeLine ? (g) => `${g.id}:*` : null,
+        wholeLabel: 'ทุกสถานีในสายนี้',
+        labelOf: stationLabel,
+        colorOf: lineColor,
+        placeholder: 'หรือพิมพ์ชื่อสถานี เช่น อโศก, ลาดพร้าว',
+        unit: 'สถานี',
+        onChange
+    });
+}
+
+// ตัวเลือกตำแหน่งงาน: เลือกหมวดก่อน แล้วเลือกตำแหน่ง (ไม่จำกัดจำนวน)
+function createPositionPicker(root, { allowWholeCategory = false, onChange } = {}) {
+    return createCategoryPicker(root, {
+        groups: POSITION_CATEGORIES.map(c => ({
+            id: c.id, name: c.name, color: c.color,
+            items: c.items.map(i => ({ value: i.name, label: i.name, search: i.th || '', title: i.th || '' }))
+        })),
+        wholeValue: allowWholeCategory ? (g) => `cat:${g.id}` : null,
+        wholeLabel: 'ทุกตำแหน่งในหมวดนี้',
+        labelOf: positionLabel,
+        colorOf: positionColor,
+        placeholder: 'หรือพิมพ์ค้นหา เช่น Data, ผู้ช่วยวิจัย, ออกแบบ',
+        unit: 'ตำแหน่ง',
+        onChange
+    });
 }
 
 // ---------------------------------------------------------------------------

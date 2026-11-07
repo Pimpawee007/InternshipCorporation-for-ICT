@@ -25,7 +25,7 @@ async function fetchCompanies() {
     try {
         const response = await fetch(`${API_URL}/companies`);
         if (!response.ok) throw new Error('HTTP ' + response.status);
-        companyData = await response.json();
+        companyData = (await response.json()).map(c => ({ ...c, tags: normalizeTags(c.tags) }));
         applyView();
         updateStats();
         loadPopular();
@@ -59,7 +59,7 @@ function matchesFilters(c) {
     const f = view.filters;
     if (f.sector?.length && !f.sector.includes(c.sector)) return false;
     if (f.status?.length && !f.status.includes(deadlineStatus(c).key)) return false;
-    if (f.position?.length && !f.position.some(t => tags.includes(t))) return false;
+    if (f.position?.length && !companyMatchesPositions(c, f.position)) return false;
     if (f.workmode?.length && !f.workmode.some(t => tags.includes(t))) return false;
     if (f.transit?.length && !companyMatchesTransit(c, f.transit)) return false;
     if (f.other?.length && !f.other.some(t => tags.includes(t))) return false;
@@ -313,7 +313,7 @@ document.getElementById('searchInput').addEventListener('keydown', (e) => {
 // ---------------------------------------------------------------------------
 // ตัวกรอง
 // ---------------------------------------------------------------------------
-document.getElementById('filterPositions').innerHTML = chipsHTML(POSITION_TAGS, { group: 'position' });
+const filterPositionPicker = createPositionPicker(document.getElementById('filterPositions'), { allowWholeCategory: true });
 document.getElementById('filterWorkmode').innerHTML = chipsHTML(WORKMODE_TAGS, { group: 'workmode' });
 const filterStationPicker = createStationPicker(document.getElementById('filterTransit'), { allowWholeLine: true });
 
@@ -324,6 +324,8 @@ function readFilters() {
     });
     const stations = filterStationPicker.get();
     if (stations.length) filters.transit = stations;
+    const positions = filterPositionPicker.get();
+    if (positions.length) filters.position = positions;
     return filters;
 }
 
@@ -332,6 +334,7 @@ function syncFilterInputs() {
         cb.checked = (view.filters[cb.dataset.group] || []).includes(cb.value);
     });
     filterStationPicker.set(view.filters.transit || []);
+    filterPositionPicker.set(view.filters.position || []);
 }
 
 function activeFilterCount() {
@@ -355,6 +358,7 @@ document.getElementById('btnCancelFilter').addEventListener('click', () => close
 document.getElementById('btnResetFilter').addEventListener('click', () => {
     document.querySelectorAll('#filterModal input:checked').forEach(cb => cb.checked = false);
     filterStationPicker.set([]);
+    filterPositionPicker.set([]);
 });
 
 document.getElementById('btnApplyFilter').addEventListener('click', () => {
@@ -404,10 +408,12 @@ function openDetailsModal(companyId) {
     document.getElementById('modalDesc').textContent = data.desc || '-';
     document.getElementById('modalLoc').textContent = data.loc || '-';
     document.getElementById('modalPay').textContent = data.pay || '-';
-    document.getElementById('modalPos').textContent = data.pos || '-';
+    const positions = (data.tags || []).filter(t => POSITION_TAGS.includes(t));
+    document.getElementById('modalPositions').innerHTML = positions.map(positionPillHTML).join('');
+    document.getElementById('modalPos').textContent = data.pos || (positions.length ? '' : '-');
     document.getElementById('modalTime').textContent = data.time || '-';
 
-    const extraTags = (data.tags || []).filter(t => t !== data.sector && !TRANSIT_TAGS.includes(t));
+    const extraTags = (data.tags || []).filter(t => t !== data.sector && !TRANSIT_TAGS.includes(t) && !POSITION_TAGS.includes(t));
     const stations = data.stations || [];
     document.getElementById('modalStationsRow').classList.toggle('hidden', !stations.length);
     document.getElementById('modalStations').innerHTML = stations.map(stationPillHTML).join('');
@@ -755,7 +761,11 @@ function openCompare() {
         ['ประเภท', c => `<span class="sector-tag ${SECTOR_CLASS[c.sector] || ''}">${escapeHTML(c.sector)}</span>`],
         ['รับสมัคร', c => statusBadgeHTML(c) || '<span class="cg-empty">ไม่ระบุ</span>'],
         ['ค่าตอบแทน', c => hasPay(c.pay) ? `<b class="highlight-pay">${escapeHTML(c.pay)}</b>` : '<span class="cg-empty">ไม่มี / ไม่ระบุ</span>'],
-        ['ตำแหน่ง', c => tagsIn(c, POSITION_TAGS).length ? pills(tagsIn(c, POSITION_TAGS)) : escapeHTML(c.pos || '-')],
+        ['ตำแหน่ง', c => {
+            const list = tagsIn(c, POSITION_TAGS);
+            const extra = c.pos ? `<span class="cg-pos-extra">${escapeHTML(c.pos)}</span>` : '';
+            return (list.length ? list.map(positionPillHTML).join('') : '') + extra || '<span class="cg-empty">-</span>';
+        }],
         ['รูปแบบงาน', c => pills(tagsIn(c, WORKMODE_TAGS))],
         ['รถไฟฟ้า', c => (c.stations || []).length ? c.stations.map(stationPillHTML).join('') : pills(tagsIn(c, TRANSIT_TAGS))],
         ['สถานที่', c => escapeHTML(c.loc || '-')],

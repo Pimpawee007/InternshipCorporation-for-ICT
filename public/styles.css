@@ -2349,3 +2349,9 @@ body.has-compare .toast { bottom: calc(var(--tab-h) + 96px + env(safe-area-inset
     background: transparent;
     box-shadow: none;
 }
+
+/* v5 — position picker */
+.pos-extra:not(:empty) { display: block; margin-top: 4px; }
+.cg-pos-extra { display: block; width: 100%; margin-top: 2px; font-size: .82rem; color: var(--muted); }
+.position-pill { cursor: default; }
+.admin-card .modal-tags .position-pill { font-size: .78rem; }

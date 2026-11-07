@@ -13,6 +13,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="transit-data.js" defer></script>
+    <script src="tag-data.js" defer></script>
     <script src="common.js" defer></script>
     <script src="script.js" defer></script>
 </head>
@@ -242,8 +243,8 @@
                     </div>
                 </div>
                 <div class="filter-group">
-                    <h4>ตำแหน่งงาน</h4>
-                    <div class="checkbox-grid chip-group" id="filterPositions" data-group="position"></div>
+                    <h4>ตำแหน่งงาน <span class="h4-hint">เลือกหมวดก่อน แล้วเลือกตำแหน่ง</span></h4>
+                    <div id="filterPositions"></div>
                 </div>
                 <div class="filter-group">
                     <h4>รูปแบบการทำงาน</h4>
@@ -301,7 +302,7 @@
                     <div class="detail-row"><span class="detail-icon"><svg class="icon"><use href="#i-pin"/></svg></span><p><strong>สถานที่ตั้ง</strong> <span id="modalLoc" class="break-text"></span></p></div>
                     <div class="detail-row hidden" id="modalStationsRow"><span class="detail-icon"><svg class="icon"><use href="#i-train"/></svg></span><p><strong>รถไฟฟ้าใกล้ที่สุด</strong> <span id="modalStations" class="station-pills"></span></p></div>
                     <div class="detail-row"><span class="detail-icon pay"><svg class="icon"><use href="#i-coins"/></svg></span><p><strong>ค่าตอบแทน</strong> <span id="modalPay" class="highlight-pay break-text"></span></p></div>
-                    <div class="detail-row"><span class="detail-icon"><svg class="icon"><use href="#i-briefcase"/></svg></span><p><strong>ตำแหน่งงานที่เปิดรับ</strong> <span id="modalPos" class="break-text"></span></p></div>
+                    <div class="detail-row"><span class="detail-icon"><svg class="icon"><use href="#i-briefcase"/></svg></span><p><strong>ตำแหน่งงานที่เปิดรับ</strong> <span id="modalPositions" class="station-pills"></span><span id="modalPos" class="break-text pos-extra"></span></p></div>
                     <div class="detail-row"><span class="detail-icon"><svg class="icon"><use href="#i-calendar"/></svg></span><p><strong>ระยะเวลาการรับสมัคร</strong> <span id="modalTime" class="break-text"></span></p></div>
                     <div class="detail-row"><span class="detail-icon"><svg class="icon"><use href="#i-phone"/></svg></span><p><strong>ช่องทางติดต่อ</strong> <a id="modalContactLink" href="#" target="_blank" rel="noopener" class="break-text link-wrap"></a><span id="modalContactText" class="break-text"></span></p></div>
                     <div class="modal-tags" id="modalTags"></div>

@@ -4,6 +4,8 @@ const crypto = require('crypto');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const TRANSIT_LINES = require('./public/transit-data.js');
+const { POSITION_CATEGORIES, LEGACY_POSITION_MAP } = require('./public/tag-data.js');
+const POSITION_NAMES = POSITION_CATEGORIES.flatMap(c => c.items.map(i => i.name));
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -127,7 +129,7 @@ const SECTORS = ['ภาครัฐ', 'เอกชน', 'รัฐวิสา
 
 // ต้องตรงกับรายการใน public/common.js
 const TRACKABLE_TAGS = [
-    'Frontend', 'Backend', 'Full-stack', 'Mobile', 'Data / AI', 'UX/UI', 'Network / Infra', 'Cybersecurity', 'QA / Tester', 'IT Support',
+    ...POSITION_NAMES,
     'Onsite', 'Hybrid', 'Remote',
     'มีค่าตอบแทน', 'ภาคกลาง', 'ต่างจังหวัด', 'ต่างประเทศ', 'รับฝึกมากกว่า 2 เดือน',
     ...TRANSIT_LINES.map(l => l.name)
@@ -146,7 +148,7 @@ function cleanText(value, max = 500) {
 
 function cleanTags(tags) {
     if (!Array.isArray(tags)) return [];
-    return [...new Set(tags.map(t => cleanText(t, 40)).filter(Boolean))].slice(0, 20);
+    return [...new Set(tags.map(t => cleanText(t, 40)).filter(Boolean))].slice(0, 60);
 }
 
 function normalizeName(name) {
@@ -179,7 +181,7 @@ function companyFields(body) {
         timeStart: cleanText(body.timeStart, 10),
         timeEnd: cleanText(body.timeEnd, 10),
         contact: cleanText(body.contact, 200),
-        tags: cleanTags(body.tags)
+        tags: [...new Set(cleanTags(body.tags).map(t => LEGACY_POSITION_MAP[t] || t))]
     }, body.stations);
 }
 
@@ -341,7 +343,8 @@ app.get('/api/stats/popular', async (req, res) => {
     try {
         const totals = {};
         (await TagStat.find()).map(plain).forEach(s => {
-            if (TRACKABLE_TAGS.includes(s.tag)) totals[s.tag] = (totals[s.tag] || 0) + (s.count || 0);
+            const tag = LEGACY_POSITION_MAP[s.tag] || s.tag;
+            if (TRACKABLE_TAGS.includes(tag)) totals[tag] = (totals[tag] || 0) + (s.count || 0);
         });
         const top = Object.entries(totals).sort((a, b) => b[1] - a[1]).slice(0, 8);
         res.json(top.map(([tag, count]) => ({ tag, count })));

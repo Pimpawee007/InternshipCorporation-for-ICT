@@ -14,6 +14,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="transit-data.js" defer></script>
+    <script src="tag-data.js" defer></script>
     <script src="common.js" defer></script>
     <script src="admin.js" defer></script>
 </head>
@@ -130,7 +131,9 @@
                 <label for="editPay">ค่าตอบแทน</label>
                 <input type="text" id="editPay">
 
-                <label for="editPos">ตำแหน่งงานที่เปิดรับ</label>
+                <label>ตำแหน่งงานที่เปิดรับ</label>
+                <div id="editPositions"></div>
+                <label class="sub-label" for="editPos">เขียนเพิ่มเติม (ไม่บังคับ)</label>
                 <input type="text" id="editPos">
 
                 <label>ระยะเวลาการรับสมัคร</label>
