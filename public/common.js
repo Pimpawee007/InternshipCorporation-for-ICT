@@ -14,6 +14,18 @@ const SECTOR_CLASS = {
 const POSITION_TAGS = ['Frontend', 'Backend', 'Full-stack', 'Mobile', 'Data / AI', 'UX/UI', 'Network / Infra', 'Cybersecurity', 'QA / Tester', 'IT Support'];
 const WORKMODE_TAGS = ['Onsite', 'Hybrid', 'Remote'];
 const OTHER_TAGS = ['ภาคกลาง', 'ต่างจังหวัด', 'ต่างประเทศ', 'รับฝึกมากกว่า 2 เดือน'];
+const TRANSIT_TAGS = ['BTS สายสุขุมวิท', 'BTS สายสีลม', 'MRT สายสีน้ำเงิน', 'MRT สายสีม่วง', 'MRT สายสีเหลือง', 'MRT สายสีชมพู', 'Airport Rail Link', 'รถไฟฟ้าสายสีแดง'];
+// ถ้าเพิ่ม Tag ใหม่ อย่าลืมเพิ่มใน TRACKABLE_TAGS ของ server.js ด้วย
+
+// Tag นี้อยู่หมวดไหนของตัวกรอง
+function tagGroup(tag) {
+    if (POSITION_TAGS.includes(tag)) return 'position';
+    if (WORKMODE_TAGS.includes(tag)) return 'workmode';
+    if (TRANSIT_TAGS.includes(tag)) return 'transit';
+    return 'other';
+}
+
+const DIFFICULTY_LABEL = { easy: 'สัมภาษณ์ง่าย', medium: 'ปานกลาง', hard: 'ค่อนข้างยาก' };
 
 // ---------------------------------------------------------------------------
 // Icon sprite (Lucide style) — ใส่ครั้งเดียว ใช้ได้ทุกหน้าด้วย <svg class="icon"><use href="#i-..."/></svg>
@@ -59,6 +71,13 @@ const ICONS = {
     eye: '<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>',
     logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>',
     pencil: '<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>',
+    'calendar-plus': '<path d="M8 2v4"/><path d="M16 2v4"/><path d="M21 13V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8"/><path d="M3 10h18"/><path d="M16 19h6"/><path d="M19 16v6"/>',
+    share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/>',
+    link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+    compare: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M12 3v18"/>',
+    train: '<path d="M8 3.1V7a4 4 0 0 0 8 0V3.1"/><path d="m9 15-1-1"/><path d="m15 15 1-1"/><path d="M9 19c-2.8 0-5-2.2-5-5v-4a8 8 0 0 1 16 0v4c0 2.8-2.2 5-5 5Z"/><path d="m8 19-2 3"/><path d="m16 19 2 3"/>',
+    flame: '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+    mic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/>',
     trash: '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>'
 };
 
@@ -183,6 +202,28 @@ function deadlineStatus(c) {
     if (days === 0) return { key: 'closing', label: 'ปิดรับวันนี้', end };
     if (days <= 14) return { key: 'closing', label: `ใกล้ปิด · อีก ${days} วัน`, end };
     return { key: 'open', label: `เปิดรับถึง ${formatThaiDate(end)}`, end };
+}
+
+// ลิงก์ตรงไปหน้ารายละเอียดบริษัท (ใช้แชร์)
+function companyLink(id) {
+    return new URL(`index.html?company=${encodeURIComponent(id)}`, location.href).href;
+}
+
+// ลิงก์เพิ่มวันปิดรับสมัครลง Google Calendar (เป็นนัดทั้งวัน)
+function calendarURL(c) {
+    const { end } = companyDates(c);
+    if (!end) return '';
+    const fmt = (d) => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+    const next = new Date(end); next.setDate(next.getDate() + 1);
+    const pageUrl = companyLink(c.id);
+    const params = new URLSearchParams({
+        action: 'TEMPLATE',
+        text: `ปิดรับสมัครฝึกงาน: ${c.name}`,
+        dates: `${fmt(end)}/${fmt(next)}`,
+        details: `วันสุดท้ายของการรับสมัครฝึกงานที่ ${c.name}\nดูรายละเอียด: ${pageUrl}`,
+        location: c.loc || ''
+    });
+    return `https://calendar.google.com/calendar/render?${params}`;
 }
 
 function statusBadgeHTML(c) {

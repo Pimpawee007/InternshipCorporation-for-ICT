@@ -5,6 +5,7 @@ let existingCompanies = [];
 
 document.getElementById('addPositionChips').innerHTML = chipsHTML(POSITION_TAGS, { name: 'addTags' });
 document.getElementById('addWorkmodeChips').innerHTML = chipsHTML(WORKMODE_TAGS, { name: 'addTags' });
+document.getElementById('addTransitChips').innerHTML = chipsHTML(TRANSIT_TAGS, { name: 'addTags' });
 document.getElementById('addOtherChips').innerHTML = chipsHTML(OTHER_TAGS, { name: 'addTags' });
 
 // โหลดรายชื่อบริษัทที่มีอยู่ ไว้เช็คชื่อซ้ำ

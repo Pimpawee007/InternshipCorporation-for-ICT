@@ -54,6 +54,29 @@
             </div>
         </section>
 
+        <section class="stats-row" aria-label="ภาพรวมของเว็บ">
+            <button type="button" class="stat-tile" data-stat="all">
+                <span class="stat-icon"><svg class="icon"><use href="#i-building"/></svg></span>
+                <span class="stat-num" id="statTotal">–</span>
+                <span class="stat-label">บริษัททั้งหมด</span>
+            </button>
+            <button type="button" class="stat-tile" data-stat="open">
+                <span class="stat-icon open"><svg class="icon"><use href="#i-check"/></svg></span>
+                <span class="stat-num" id="statOpen">–</span>
+                <span class="stat-label">เปิดรับอยู่ตอนนี้</span>
+            </button>
+            <button type="button" class="stat-tile" data-stat="closing">
+                <span class="stat-icon closing"><svg class="icon"><use href="#i-clock"/></svg></span>
+                <span class="stat-num" id="statClosing">–</span>
+                <span class="stat-label">ใกล้ปิดใน 14 วัน</span>
+            </button>
+            <button type="button" class="stat-tile" data-stat="reviews">
+                <span class="stat-icon reviews"><svg class="icon"><use href="#i-message"/></svg></span>
+                <span class="stat-num" id="statReviews">–</span>
+                <span class="stat-label">รีวิวจากรุ่นพี่</span>
+            </button>
+        </section>
+
         <section id="find" class="content-section">
             <div class="section-head">
                 <div>
@@ -84,6 +107,9 @@
                 <button type="button" class="chip-toggle" id="btnSavedOnly" aria-pressed="false">
                     <svg class="icon"><use href="#i-heart"/></svg>ที่บันทึกไว้<span class="saved-count" id="savedCount"></span>
                 </button>
+                <span class="toolbar-divider" aria-hidden="true"></span>
+                <span class="quick-label"><svg class="icon"><use href="#i-flame"/></svg>ยอดนิยม</span>
+                <div class="quick-chips" id="quickChips" aria-label="Tag ที่ค้นหาบ่อย"></div>
             </div>
 
             <!-- Memo: แสดงเมื่อค้นหาแล้วไม่เจอ หรือโหลดข้อมูลไม่ได้ -->
@@ -223,6 +249,10 @@
                     <div class="checkbox-grid chip-group" id="filterWorkmode" data-group="workmode"></div>
                 </div>
                 <div class="filter-group">
+                    <h4>รถไฟฟ้าใกล้บริษัท</h4>
+                    <div class="checkbox-grid chip-group" id="filterTransit" data-group="transit"></div>
+                </div>
+                <div class="filter-group">
                     <h4>อื่น ๆ</h4>
                     <div class="checkbox-grid chip-group" data-group="other">
                         <label class="chip"><input type="checkbox" data-group="other" value="มีค่าตอบแทน"><span>มีค่าตอบแทน</span></label>
@@ -254,8 +284,14 @@
                         <span id="modalStatus"></span>
                     </div>
                     <h2 id="modalCompanyName" class="break-text">ชื่อบริษัท</h2>
-                    <button type="button" class="btn-save-text" id="modalSaveBtn" aria-pressed="false"><svg class="icon"><use href="#i-heart"/></svg><span>บันทึกไว้ดูทีหลัง</span></button>
                 </div>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn-save-text" id="modalSaveBtn" aria-pressed="false"><svg class="icon"><use href="#i-heart"/></svg><span>บันทึกไว้ดูทีหลัง</span></button>
+                <button type="button" class="action-chip" id="modalCompareBtn" aria-pressed="false"><svg class="icon"><use href="#i-compare"/></svg><span>เปรียบเทียบ</span></button>
+                <button type="button" class="action-chip" id="modalShareBtn"><svg class="icon"><use href="#i-share"/></svg><span>แชร์</span></button>
+                <a class="action-chip" id="modalCalendarBtn" href="#" target="_blank" rel="noopener"><svg class="icon"><use href="#i-calendar-plus"/></svg><span>ลง Google Calendar</span></a>
             </div>
 
             <div class="modal-body">
@@ -290,7 +326,11 @@
                                 <input type="radio" name="rvRating" id="rv1" value="1"><label for="rv1" title="1 ดาว">★</label>
                             </div>
                         </div>
-                        <div class="form-row">
+                        <div class="form-row three">
+                            <div class="form-group">
+                                <label for="rvYear">ปีที่ฝึก (พ.ศ.)</label>
+                                <select id="rvYear"></select>
+                            </div>
                             <div class="form-group">
                                 <label for="rvRole">ตำแหน่งที่ไปฝึก</label>
                                 <input type="text" id="rvRole" placeholder="เช่น Frontend Intern" maxlength="100">
@@ -311,6 +351,37 @@
                                 <label class="chip"><input type="radio" name="rvRecommend" value="no"><span>ไม่แนะนำ</span></label>
                             </div>
                         </div>
+                        <fieldset class="interview-box">
+                            <legend><svg class="icon"><use href="#i-mic"/></svg>ประสบการณ์สัมภาษณ์ (ไม่บังคับ)</legend>
+                            <div class="form-group">
+                                <span class="label">สัมภาษณ์ยากไหม?</span>
+                                <div class="chip-group">
+                                    <label class="chip"><input type="radio" name="rvDifficulty" value="easy"><span>ง่าย</span></label>
+                                    <label class="chip"><input type="radio" name="rvDifficulty" value="medium"><span>ปานกลาง</span></label>
+                                    <label class="chip"><input type="radio" name="rvDifficulty" value="hard"><span>ยาก</span></label>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <span class="label">มีข้อสอบ / coding test ไหม?</span>
+                                    <div class="chip-group">
+                                        <label class="chip"><input type="radio" name="rvTest" value="yes"><span>มี</span></label>
+                                        <label class="chip"><input type="radio" name="rvTest" value="no"><span>ไม่มี</span></label>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <span class="label">ต้องใช้ portfolio ไหม?</span>
+                                    <div class="chip-group">
+                                        <label class="chip"><input type="radio" name="rvPortfolio" value="yes"><span>ต้องใช้</span></label>
+                                        <label class="chip"><input type="radio" name="rvPortfolio" value="no"><span>ไม่ต้อง</span></label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="rvInterview">เขาถามอะไรบ้าง / ทิปสำหรับรุ่นน้อง</label>
+                                <textarea id="rvInterview" rows="3" maxlength="1500" placeholder="เช่น ให้แนะนำตัว เล่าโปรเจกต์ที่เคยทำ ถาม SQL join, ข้อสอบ logic 30 นาที"></textarea>
+                            </div>
+                        </fieldset>
                         <div class="form-group">
                             <label for="rvText">เล่าประสบการณ์หน่อย</label>
                             <textarea id="rvText" rows="4" maxlength="1500" placeholder="ได้ทำงานอะไรบ้าง ทีมเป็นยังไง มีอะไรอยากบอกรุ่นน้อง" required></textarea>
@@ -335,6 +406,25 @@
                         </div>
                     </form>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- แถบเปรียบเทียบ -->
+    <div id="compareBar" class="compare-bar hidden" role="region" aria-label="เปรียบเทียบบริษัท">
+        <div class="compare-logos" id="compareLogos"></div>
+        <span class="compare-count" id="compareCount"></span>
+        <button type="button" class="btn-text" id="btnCompareClear">ล้าง</button>
+        <button type="button" class="btn-primary" id="btnCompareOpen"><svg class="icon"><use href="#i-compare"/></svg>เปรียบเทียบ</button>
+    </div>
+
+    <!-- Compare Modal -->
+    <div id="compareModal" class="modal">
+        <div class="modal-content compare-content">
+            <button class="close-btn" onclick="closeModal('compareModal')" aria-label="ปิด"><svg class="icon"><use href="#i-x"/></svg></button>
+            <h2 class="compare-title"><svg class="icon"><use href="#i-compare"/></svg>เปรียบเทียบบริษัท</h2>
+            <div class="compare-scroll">
+                <div class="compare-grid" id="compareTable" role="table" aria-label="ตารางเปรียบเทียบ"></div>
             </div>
         </div>
     </div>

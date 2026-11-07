@@ -191,8 +191,19 @@ function pendingCompanyHTML(c) {
 
 function reviewCardHTML(r) {
     const id = escapeHTML(r.id);
-    const meta = [r.role, r.workMode, r.pay ? `ได้ ${r.pay}` : ''].filter(Boolean).map(escapeHTML).join(' · ');
+    const meta = [r.year ? `ฝึกปี ${r.year}` : '', r.role, r.workMode, r.pay ? `ได้ ${r.pay}` : ''].filter(Boolean).map(escapeHTML).join(' · ');
     const pending = r.status === 'pending';
+    const facts = [
+        r.difficulty ? DIFFICULTY_LABEL[r.difficulty] : '',
+        r.hasTest === 'yes' ? 'มีข้อสอบ' : r.hasTest === 'no' ? 'ไม่มีข้อสอบ' : '',
+        r.needPortfolio === 'yes' ? 'ใช้ portfolio' : r.needPortfolio === 'no' ? 'ไม่ต้องใช้ portfolio' : ''
+    ].filter(Boolean);
+    const interview = (facts.length || r.interviewQuestions) ? `
+            <div class="review-interview">
+                <p class="ri-title">${icon('mic')}สัมภาษณ์</p>
+                ${facts.length ? `<div class="ri-facts">${facts.map(f => `<span class="mini-tag">${escapeHTML(f)}</span>`).join('')}</div>` : ''}
+                ${r.interviewQuestions ? `<p class="review-text">${escapeHTML(r.interviewQuestions)}</p>` : ''}
+            </div>` : '';
     return `
         <article class="admin-card ${pending ? 'is-pending' : ''}">
             <div class="admin-card-head simple">
@@ -204,6 +215,7 @@ function reviewCardHTML(r) {
             </div>
             ${meta ? `<p class="review-meta">${meta}</p>` : ''}
             <p class="review-text">${escapeHTML(r.text)}</p>
+            ${interview}
             <div class="admin-card-actions">
                 ${pending ? `<button class="btn-approve" onclick="approveReview('${id}')">${icon('check')}อนุมัติ</button>` : ''}
                 <button class="btn-del" onclick="deleteReview('${id}')">${icon('trash')}ลบ</button>
@@ -300,7 +312,7 @@ function resolveReport(id) {
 // ---------------------------------------------------------------------------
 // Edit modal
 // ---------------------------------------------------------------------------
-document.getElementById('editTagHint').textContent = 'Tag ที่ใช้กรองได้: ' + [...POSITION_TAGS, ...WORKMODE_TAGS, 'มีค่าตอบแทน', ...OTHER_TAGS].join(', ');
+document.getElementById('editTagHint').textContent = 'Tag ที่ใช้กรองได้: ' + [...POSITION_TAGS, ...WORKMODE_TAGS, ...TRANSIT_TAGS, 'มีค่าตอบแทน', ...OTHER_TAGS].join(', ');
 
 function openEditModal(id) {
     const data = companiesCache.find(c => c.id === id);

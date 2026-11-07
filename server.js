@@ -49,6 +49,11 @@ const reviewSchema = new mongoose.Schema({
     pay: String,
     recommend: Boolean,
     text: String,
+    year: String,               // ปีที่ฝึก (พ.ศ.) เช่น "2568"
+    interviewQuestions: String, // ประสบการณ์สัมภาษณ์
+    hasTest: String,            // 'yes' | 'no' | ''
+    needPortfolio: String,      // 'yes' | 'no' | ''
+    difficulty: String,         // 'easy' | 'medium' | 'hard' | ''
     status: String,      // 'approved' | 'pending'
     createdAt: Date
 });
@@ -62,6 +67,10 @@ const reportSchema = new mongoose.Schema({
     createdAt: Date
 });
 const Report = mongoose.model('Report', reportSchema);
+
+// นับว่า Tag ไหนถูกกดค้นหาบ่อย (ใช้ทำปุ่ม "ยอดนิยม" หน้าแรก)
+const tagStatSchema = new mongoose.Schema({ tag: String, count: Number });
+const TagStat = mongoose.model('TagStat', tagStatSchema);
 
 // ---------------------------------------------------------------------------
 // Admin auth (token แบบมีลายเซ็น — แก้ไข/ลบ/อนุมัติ ต้อง login เท่านั้น)
@@ -113,6 +122,16 @@ function requireAdmin(req, res, next) {
 // Helpers
 // ---------------------------------------------------------------------------
 const SECTORS = ['ภาครัฐ', 'เอกชน', 'รัฐวิสาหกิจ'];
+
+// ต้องตรงกับรายการใน public/common.js
+const TRACKABLE_TAGS = [
+    'Frontend', 'Backend', 'Full-stack', 'Mobile', 'Data / AI', 'UX/UI', 'Network / Infra', 'Cybersecurity', 'QA / Tester', 'IT Support',
+    'Onsite', 'Hybrid', 'Remote',
+    'มีค่าตอบแทน', 'ภาคกลาง', 'ต่างจังหวัด', 'ต่างประเทศ', 'รับฝึกมากกว่า 2 เดือน',
+    'BTS สายสุขุมวิท', 'BTS สายสีลม', 'MRT สายสีน้ำเงิน', 'MRT สายสีม่วง', 'MRT สายสีเหลือง', 'MRT สายสีชมพู', 'Airport Rail Link', 'รถไฟฟ้าสายสีแดง'
+];
+
+const yesNo = (v) => (v === 'yes' || v === 'no' ? v : '');
 
 function cleanText(value, max = 500) {
     if (value === undefined || value === null) return '';
@@ -175,13 +194,19 @@ app.get('/api/companies', async (req, res) => {
         const [companies, reviews] = await Promise.all([Company.find(), Review.find({ status: 'approved' })]);
         const stats = {};
         reviews.map(plain).forEach(r => {
-            const s = stats[r.companyId] || (stats[r.companyId] = { sum: 0, count: 0 });
+            const s = stats[r.companyId] || (stats[r.companyId] = { sum: 0, count: 0, rec: 0 });
             s.sum += Number(r.rating) || 0;
             s.count++;
+            if (r.recommend) s.rec++;
         });
         const result = companies.map(plain).filter(isApproved).map(c => {
             const s = stats[c.id];
-            return { ...c, reviewCount: s ? s.count : 0, ratingAvg: s ? Math.round((s.sum / s.count) * 10) / 10 : null };
+            return {
+                ...c,
+                reviewCount: s ? s.count : 0,
+                ratingAvg: s ? Math.round((s.sum / s.count) * 10) / 10 : null,
+                recommendPct: s ? Math.round((s.rec / s.count) * 100) : null
+            };
         });
         res.json(result);
     } catch (error) {
@@ -249,6 +274,11 @@ app.post('/api/companies/:id/reviews', async (req, res) => {
             pay: cleanText(body.pay, 100),
             recommend: body.recommend === true || body.recommend === 'yes',
             text,
+            year: /^(25[0-9]{2}|20[0-9]{2})$/.test(String(body.year || '')) ? String(body.year) : '',
+            interviewQuestions: cleanText(body.interviewQuestions, 1500),
+            hasTest: yesNo(body.hasTest),
+            needPortfolio: yesNo(body.needPortfolio),
+            difficulty: ['easy', 'medium', 'hard'].includes(body.difficulty) ? body.difficulty : '',
             status: 'pending',
             createdAt: new Date()
         });
@@ -271,6 +301,34 @@ app.post('/api/companies/:id/report', async (req, res) => {
         const report = new Report({ id: newId('p'), companyId: req.params.id, companyName: plain(company).name, message, createdAt: new Date() });
         await report.save();
         res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+});
+
+// Tag ยอดนิยม: นับเมื่อมีคนกดปุ่มลัดหรือใช้ตัวกรอง (นับเฉพาะ Tag ที่อยู่ในรายการ)
+app.post('/api/stats/tags', async (req, res) => {
+    try {
+        const tags = Array.isArray((req.body || {}).tags) ? req.body.tags : [];
+        const valid = [...new Set(tags)].filter(t => TRACKABLE_TAGS.includes(t)).slice(0, 5);
+        for (const tag of valid) {
+            const updated = await TagStat.findOneAndUpdate({ tag }, { $inc: { count: 1 } }, { new: true });
+            if (!updated) await new TagStat({ tag, count: 1 }).save();
+        }
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+});
+
+app.get('/api/stats/popular', async (req, res) => {
+    try {
+        const totals = {};
+        (await TagStat.find()).map(plain).forEach(s => {
+            if (TRACKABLE_TAGS.includes(s.tag)) totals[s.tag] = (totals[s.tag] || 0) + (s.count || 0);
+        });
+        const top = Object.entries(totals).sort((a, b) => b[1] - a[1]).slice(0, 8);
+        res.json(top.map(([tag, count]) => ({ tag, count })));
     } catch (error) {
         res.status(500).json({ success: false, message: 'Server error' });
     }
