@@ -12,6 +12,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="transit-data.js" defer></script>
     <script src="common.js" defer></script>
     <script src="add.js" defer></script>
 </head>
@@ -94,8 +95,9 @@
                         <div class="chip-group" id="addWorkmodeChips"></div>
                     </div>
                     <div class="form-group">
-                        <span class="label">รถไฟฟ้าใกล้บริษัท (ถ้ามี)</span>
-                        <div class="chip-group" id="addTransitChips"></div>
+                        <span class="label">รถไฟฟ้าใกล้บริษัท (ถ้ามี · เลือกได้ไม่เกิน 4 สถานี)</span>
+                        <p class="field-hint">เลือกสายก่อน แล้วกดสถานีที่ใกล้บริษัท</p>
+                        <div id="addStationPicker"></div>
                     </div>
                     <div class="form-group">
                         <span class="label">อื่น ๆ</span>

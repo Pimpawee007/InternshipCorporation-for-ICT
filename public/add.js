@@ -5,7 +5,7 @@ let existingCompanies = [];
 
 document.getElementById('addPositionChips').innerHTML = chipsHTML(POSITION_TAGS, { name: 'addTags' });
 document.getElementById('addWorkmodeChips').innerHTML = chipsHTML(WORKMODE_TAGS, { name: 'addTags' });
-document.getElementById('addTransitChips').innerHTML = chipsHTML(TRANSIT_TAGS, { name: 'addTags' });
+const stationPicker = createStationPicker(document.getElementById('addStationPicker'), { max: 4 });
 document.getElementById('addOtherChips').innerHTML = chipsHTML(OTHER_TAGS, { name: 'addTags' });
 
 // โหลดรายชื่อบริษัทที่มีอยู่ ไว้เช็คชื่อซ้ำ
@@ -153,7 +153,8 @@ document.getElementById('addCompanyForm').addEventListener('submit', async (e) =
         timeStart: tStart,
         timeEnd: tEnd,
         pay: payStr,
-        tags
+        tags,
+        stations: stationPicker.get()
     };
 
     try {
@@ -183,6 +184,7 @@ document.getElementById('addCompanyForm').addEventListener('submit', async (e) =
 document.getElementById('btnAddAnother').addEventListener('click', () => {
     const form = document.getElementById('addCompanyForm');
     form.reset();
+    stationPicker.set([]);
     payInput.classList.add('hidden');
     payInput.required = false;
     setExtraOpen(false);

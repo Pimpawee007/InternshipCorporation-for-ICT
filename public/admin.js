@@ -164,7 +164,7 @@ function contactHTML(contact) {
 // ---------------------------------------------------------------------------
 function pendingCompanyHTML(c) {
     const id = escapeHTML(c.id);
-    const tags = (c.tags || []).filter(t => t !== c.sector).map(t => `<span class="mini-tag">${escapeHTML(t)}</span>`).join('');
+    const tags = (c.tags || []).filter(t => t !== c.sector && !TRANSIT_TAGS.includes(t)).map(t => `<span class="mini-tag">${escapeHTML(t)}</span>`).join('');
     const rows = [
         ['pin', c.loc], ['phone', c.contact], ['briefcase', c.pos], ['coins', c.pay], ['calendar', c.time], ['file', c.desc]
     ].filter(([, v]) => v && v !== '-')
@@ -180,6 +180,7 @@ function pendingCompanyHTML(c) {
                 <span class="admin-date">${formatDateTime(c.createdAt)}</span>
             </div>
             ${rows}
+            ${(c.stations || []).length ? `<div class="station-pills">${c.stations.map(stationPillHTML).join('')}</div>` : ''}
             ${tags ? `<div class="modal-tags">${tags}</div>` : ''}
             <div class="admin-card-actions">
                 <button class="btn-approve" onclick="approveCompany('${id}')">${icon('check')}อนุมัติ</button>
@@ -312,7 +313,9 @@ function resolveReport(id) {
 // ---------------------------------------------------------------------------
 // Edit modal
 // ---------------------------------------------------------------------------
-document.getElementById('editTagHint').textContent = 'Tag ที่ใช้กรองได้: ' + [...POSITION_TAGS, ...WORKMODE_TAGS, ...TRANSIT_TAGS, 'มีค่าตอบแทน', ...OTHER_TAGS].join(', ');
+document.getElementById('editTagHint').textContent = 'Tag ที่ใช้กรองได้: ' + [...POSITION_TAGS, ...WORKMODE_TAGS, 'มีค่าตอบแทน', ...OTHER_TAGS].join(', ');
+
+const editStationPicker = createStationPicker(document.getElementById('editStations'), { max: 6 });
 
 function openEditModal(id) {
     const data = companiesCache.find(c => c.id === id);
@@ -333,7 +336,8 @@ function openEditModal(id) {
     document.getElementById('editTimeEnd').value = iso(end);
     document.getElementById('editTime').value = end ? '' : (data.time && data.time !== '-' ? data.time : '');
     document.getElementById('editContact').value = data.contact || '';
-    document.getElementById('editTags').value = data.tags ? data.tags.join(', ') : '';
+    document.getElementById('editTags').value = (data.tags || []).filter(t => !TRANSIT_TAGS.includes(t)).join(', ');
+    editStationPicker.set(data.stations || []);
 
     openModal('editModal');
 }
@@ -366,7 +370,8 @@ document.getElementById('editForm').addEventListener('submit', async (e) => {
         timeStart: tStart,
         timeEnd: tEnd,
         contact: document.getElementById('editContact').value,
-        tags: tagsArray
+        tags: tagsArray,
+        stations: editStationPicker.get()
     };
 
     try {

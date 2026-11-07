@@ -12,6 +12,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="transit-data.js" defer></script>
     <script src="common.js" defer></script>
     <script src="script.js" defer></script>
 </head>
@@ -249,8 +250,8 @@
                     <div class="checkbox-grid chip-group" id="filterWorkmode" data-group="workmode"></div>
                 </div>
                 <div class="filter-group">
-                    <h4>รถไฟฟ้าใกล้บริษัท</h4>
-                    <div class="checkbox-grid chip-group" id="filterTransit" data-group="transit"></div>
+                    <h4>รถไฟฟ้าใกล้บริษัท <span class="h4-hint">เลือกสายก่อน แล้วเลือกสถานี</span></h4>
+                    <div id="filterTransit"></div>
                 </div>
                 <div class="filter-group">
                     <h4>อื่น ๆ</h4>
@@ -298,6 +299,7 @@
                 <div class="modal-details">
                     <div class="detail-row"><span class="detail-icon"><svg class="icon"><use href="#i-file"/></svg></span><p><strong>คำอธิบาย</strong> <span id="modalDesc" class="break-text"></span></p></div>
                     <div class="detail-row"><span class="detail-icon"><svg class="icon"><use href="#i-pin"/></svg></span><p><strong>สถานที่ตั้ง</strong> <span id="modalLoc" class="break-text"></span></p></div>
+                    <div class="detail-row hidden" id="modalStationsRow"><span class="detail-icon"><svg class="icon"><use href="#i-train"/></svg></span><p><strong>รถไฟฟ้าใกล้ที่สุด</strong> <span id="modalStations" class="station-pills"></span></p></div>
                     <div class="detail-row"><span class="detail-icon pay"><svg class="icon"><use href="#i-coins"/></svg></span><p><strong>ค่าตอบแทน</strong> <span id="modalPay" class="highlight-pay break-text"></span></p></div>
                     <div class="detail-row"><span class="detail-icon"><svg class="icon"><use href="#i-briefcase"/></svg></span><p><strong>ตำแหน่งงานที่เปิดรับ</strong> <span id="modalPos" class="break-text"></span></p></div>
                     <div class="detail-row"><span class="detail-icon"><svg class="icon"><use href="#i-calendar"/></svg></span><p><strong>ระยะเวลาการรับสมัคร</strong> <span id="modalTime" class="break-text"></span></p></div>

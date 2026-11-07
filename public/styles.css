@@ -2212,3 +2212,140 @@ body.has-compare .toast { bottom: calc(var(--tab-h) + 96px + env(safe-area-inset
     .modal-content.compare-content { max-width: 920px; }
     .compare-grid { grid-template-columns: 120px repeat(var(--cols, 2), minmax(180px, 1fr)); min-width: 0; }
 }
+
+/* =========================================================
+   v4 — station picker (เลือกสาย → เลือกสถานี)
+   ========================================================= */
+.h4-hint { font-weight: 400; font-size: .78rem; color: var(--muted); margin-left: 6px; }
+
+.station-picker { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+
+.sp-lines {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+}
+.sp-line {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 0 var(--sp-3);
+    border-radius: var(--r-pill);
+    border: 1.5px solid #CFE2DE;
+    background: #fff;
+    color: var(--text);
+    font-size: .85rem;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: background-color .2s, border-color .2s, color .2s;
+}
+.sp-line i, .station-pill i, .station-line i {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--line);
+    flex-shrink: 0;
+}
+.sp-line:hover { border-color: var(--line); }
+.sp-line.active { background: var(--line); border-color: var(--line); color: #fff; }
+.sp-line.active i { background: #fff; }
+.sp-line-count:not(:empty) {
+    display: inline-grid;
+    place-items: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: var(--r-pill);
+    background: var(--yellow);
+    color: var(--teal-deep);
+    font-size: .7rem;
+}
+
+.sp-search {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    min-height: 42px;
+    padding: 0 var(--sp-3);
+    border-radius: var(--r-ctl);
+    background: var(--cream-soft);
+    box-shadow: inset 0 0 0 1px var(--line);
+    color: var(--muted);
+}
+.sp-search .icon { width: 16px; height: 16px; }
+.sp-search input { flex: 1; min-width: 0; border: none; background: transparent; outline: none; font-size: .9rem; color: var(--text); }
+.sp-search:focus-within { box-shadow: inset 0 0 0 1.5px var(--teal), var(--shadow-focus); background: #fff; }
+
+.sp-stations {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-height: 196px;
+    overflow-y: auto;
+    padding: 2px;
+}
+.sp-station {
+    min-height: 34px;
+    padding: 0 var(--sp-3);
+    border-radius: var(--r-pill);
+    border: 1.5px solid #DCE8E5;
+    background: #fff;
+    color: var(--text);
+    font-size: .84rem;
+    transition: background-color .15s, border-color .15s, color .15s;
+}
+.sp-station:hover { border-color: var(--line); }
+.sp-station.is-on { background: var(--line); border-color: var(--line); color: #fff; font-weight: 600; }
+.sp-station.whole { border-style: dashed; font-weight: 600; color: var(--muted); }
+.sp-station.whole.is-on { border-style: solid; color: #fff; }
+.sp-empty { font-size: .85rem; color: var(--muted); padding: var(--sp-2) 0; }
+
+.sp-selected { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.sp-selected:empty { display: none; }
+.sp-sel-label { font-size: .8rem; color: var(--muted); font-weight: 600; }
+
+.station-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: var(--r-pill);
+    border: 1px solid color-mix(in srgb, var(--line) 35%, #fff);
+    background: color-mix(in srgb, var(--line) 10%, #fff);
+    color: var(--text);
+    font-size: .8rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+.station-pill.removable { cursor: pointer; }
+.station-pill.removable .icon { width: 12px; height: 12px; color: var(--muted); }
+.station-pill.removable:hover { background: var(--danger-tint); border-color: transparent; }
+.station-pills { display: flex !important; flex-direction: row !important; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+
+.station-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+    font-size: .8rem;
+    color: var(--muted);
+}
+.station-line i { width: 8px; height: 8px; margin-left: 4px; box-shadow: 0 0 0 2px color-mix(in srgb, var(--line) 25%, #fff); }
+.station-line span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.station-line .more { color: #9AB0AD; }
+
+.edit-form .station-picker { margin-top: 2px; }
+/* ช่องค้นหาสถานีไม่ต้องใช้กรอบของ input ในฟอร์ม (กล่องนอกเป็นกรอบให้แล้ว) */
+.station-picker .sp-search input[type="text"],
+.station-picker .sp-search input[type="text"]:focus {
+    min-height: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}

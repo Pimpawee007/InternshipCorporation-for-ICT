@@ -50,7 +50,7 @@ function openFromUrl() {
 // ---------------------------------------------------------------------------
 function matchesQuery(c, q) {
     if (!q) return true;
-    const hay = [c.name, c.pos, c.loc, c.desc, ...(c.tags || [])].join(' ').toLowerCase();
+    const hay = [c.name, c.pos, c.loc, c.desc, ...(c.tags || []), ...(c.stations || []).map(stationLabel)].join(' ').toLowerCase();
     return q.split(/\s+/).every(word => hay.includes(word));
 }
 
@@ -61,7 +61,7 @@ function matchesFilters(c) {
     if (f.status?.length && !f.status.includes(deadlineStatus(c).key)) return false;
     if (f.position?.length && !f.position.some(t => tags.includes(t))) return false;
     if (f.workmode?.length && !f.workmode.some(t => tags.includes(t))) return false;
-    if (f.transit?.length && !f.transit.some(t => tags.includes(t))) return false;
+    if (f.transit?.length && !companyMatchesTransit(c, f.transit)) return false;
     if (f.other?.length && !f.other.some(t => tags.includes(t))) return false;
     return true;
 }
@@ -123,6 +123,7 @@ function cardHTML(company) {
                 <div class="card-title">
                     <h4 class="company-name">${escapeHTML(company.name)}</h4>
                     <p class="location">${icon('pin')}<span>${escapeHTML(company.loc)}</span></p>
+                    ${stationLineHTML(company)}
                 </div>
                 <button type="button" class="btn-heart ${isSaved ? 'is-saved' : ''}" data-save="${id}" aria-pressed="${isSaved}" aria-label="บันทึก ${escapeHTML(company.name)}">${icon('heart')}</button>
             </div>
@@ -140,6 +141,13 @@ function cardHTML(company) {
                 </div>
             </div>
         </article>`;
+}
+
+function stationLineHTML(company) {
+    const st = company.stations || [];
+    if (!st.length) return '';
+    const more = st.length > 1 ? ` <span class="more">+${st.length - 1}</span>` : '';
+    return `<p class="station-line" style="--line:${lineColor(st[0])}"><i></i><span>${escapeHTML(stationLabel(st[0]))}${more}</span></p>`;
 }
 
 function emptySliderHTML() {
@@ -307,13 +315,15 @@ document.getElementById('searchInput').addEventListener('keydown', (e) => {
 // ---------------------------------------------------------------------------
 document.getElementById('filterPositions').innerHTML = chipsHTML(POSITION_TAGS, { group: 'position' });
 document.getElementById('filterWorkmode').innerHTML = chipsHTML(WORKMODE_TAGS, { group: 'workmode' });
-document.getElementById('filterTransit').innerHTML = chipsHTML(TRANSIT_TAGS, { group: 'transit' });
+const filterStationPicker = createStationPicker(document.getElementById('filterTransit'), { allowWholeLine: true });
 
 function readFilters() {
     const filters = {};
     document.querySelectorAll('#filterModal input[data-group]:checked').forEach(cb => {
         (filters[cb.dataset.group] = filters[cb.dataset.group] || []).push(cb.value);
     });
+    const stations = filterStationPicker.get();
+    if (stations.length) filters.transit = stations;
     return filters;
 }
 
@@ -321,6 +331,7 @@ function syncFilterInputs() {
     document.querySelectorAll('#filterModal input[data-group]').forEach(cb => {
         cb.checked = (view.filters[cb.dataset.group] || []).includes(cb.value);
     });
+    filterStationPicker.set(view.filters.transit || []);
 }
 
 function activeFilterCount() {
@@ -343,11 +354,15 @@ document.getElementById('btnOpenFilter').addEventListener('click', () => {
 document.getElementById('btnCancelFilter').addEventListener('click', () => closeModal('filterModal'));
 document.getElementById('btnResetFilter').addEventListener('click', () => {
     document.querySelectorAll('#filterModal input:checked').forEach(cb => cb.checked = false);
+    filterStationPicker.set([]);
 });
 
 document.getElementById('btnApplyFilter').addEventListener('click', () => {
     view.filters = readFilters();
-    trackTags(['position', 'workmode', 'transit', 'other'].flatMap(g => view.filters[g] || []));
+    trackTags([
+        ...['position', 'workmode', 'other'].flatMap(g => view.filters[g] || []),
+        ...(view.filters.transit || []).map(v => (LINE_BY_ID[v.split(':')[0]] || {}).name).filter(Boolean)
+    ]);
     updateFilterCount();
     applyView();
     closeModal('filterModal');
@@ -392,7 +407,10 @@ function openDetailsModal(companyId) {
     document.getElementById('modalPos').textContent = data.pos || '-';
     document.getElementById('modalTime').textContent = data.time || '-';
 
-    const extraTags = (data.tags || []).filter(t => t !== data.sector);
+    const extraTags = (data.tags || []).filter(t => t !== data.sector && !TRANSIT_TAGS.includes(t));
+    const stations = data.stations || [];
+    document.getElementById('modalStationsRow').classList.toggle('hidden', !stations.length);
+    document.getElementById('modalStations').innerHTML = stations.map(stationPillHTML).join('');
     document.getElementById('modalTags').innerHTML = extraTags.map(t => `<span class="mini-tag">${escapeHTML(t)}</span>`).join('');
 
     const contactText = data.contact || '-';
@@ -631,8 +649,14 @@ function quickTagList() {
     return (list.length ? list : POSITION_TAGS).slice(0, 6);
 }
 
+// ปุ่มลัดของสายรถไฟฟ้า = กรอง "ทุกสถานีในสายนั้น"
+function filterValueOf(tag) {
+    const line = lineByName(tag);
+    return line ? `${line.id}:*` : tag;
+}
+
 function isTagActive(tag) {
-    return (view.filters[tagGroup(tag)] || []).includes(tag);
+    return (view.filters[tagGroup(tag)] || []).includes(filterValueOf(tag));
 }
 
 function renderQuickChips() {
@@ -646,12 +670,13 @@ function renderQuickChips() {
 
 function toggleQuickTag(tag) {
     const group = tagGroup(tag);
+    const value = filterValueOf(tag);
     const list = view.filters[group] || [];
-    if (list.includes(tag)) {
-        view.filters[group] = list.filter(t => t !== tag);
+    if (list.includes(value)) {
+        view.filters[group] = list.filter(t => t !== value);
         if (!view.filters[group].length) delete view.filters[group];
     } else {
-        view.filters[group] = [...list, tag];
+        view.filters[group] = [...list, value];
         trackTags([tag]);
     }
     updateFilterCount();
@@ -732,7 +757,7 @@ function openCompare() {
         ['ค่าตอบแทน', c => hasPay(c.pay) ? `<b class="highlight-pay">${escapeHTML(c.pay)}</b>` : '<span class="cg-empty">ไม่มี / ไม่ระบุ</span>'],
         ['ตำแหน่ง', c => tagsIn(c, POSITION_TAGS).length ? pills(tagsIn(c, POSITION_TAGS)) : escapeHTML(c.pos || '-')],
         ['รูปแบบงาน', c => pills(tagsIn(c, WORKMODE_TAGS))],
-        ['รถไฟฟ้า', c => pills(tagsIn(c, TRANSIT_TAGS))],
+        ['รถไฟฟ้า', c => (c.stations || []).length ? c.stations.map(stationPillHTML).join('') : pills(tagsIn(c, TRANSIT_TAGS))],
         ['สถานที่', c => escapeHTML(c.loc || '-')],
         ['คะแนนรีวิว', c => c.reviewCount ? `${starsHTML(c.ratingAvg)} <b>${c.ratingAvg}</b> <span class="cg-empty">(${c.reviewCount})</span>` : '<span class="cg-empty">ยังไม่มีรีวิว</span>'],
         ['รุ่นพี่แนะนำ', c => c.recommendPct != null ? `<b>${c.recommendPct}%</b>` : '<span class="cg-empty">-</span>']

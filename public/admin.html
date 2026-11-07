@@ -13,6 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="transit-data.js" defer></script>
     <script src="common.js" defer></script>
     <script src="admin.js" defer></script>
 </head>
@@ -148,6 +149,9 @@
 
                 <label for="editContact">ช่องทางติดต่อ</label>
                 <input type="text" id="editContact">
+
+                <label>รถไฟฟ้าใกล้บริษัท</label>
+                <div id="editStations"></div>
 
                 <label for="editTags">Tags สำหรับค้นหา (คั่นด้วยลูกน้ำ ,)</label>
                 <input type="text" id="editTags" placeholder="เช่น ภาคกลาง, มีค่าตอบแทน, Backend, Hybrid">

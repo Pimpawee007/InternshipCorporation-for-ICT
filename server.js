@@ -3,6 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 const cors = require('cors');
 const mongoose = require('mongoose');
+const TRANSIT_LINES = require('./public/transit-data.js');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -35,6 +36,7 @@ const companySchema = new mongoose.Schema({
     timeEnd: String,
     contact: String,
     tags: [String],
+    stations: [String],  // สถานีรถไฟฟ้าใกล้บริษัท เช่น "bts-sukhumvit:อโศก"
     status: String,      // 'approved' | 'pending'
     createdAt: Date
 });
@@ -128,8 +130,12 @@ const TRACKABLE_TAGS = [
     'Frontend', 'Backend', 'Full-stack', 'Mobile', 'Data / AI', 'UX/UI', 'Network / Infra', 'Cybersecurity', 'QA / Tester', 'IT Support',
     'Onsite', 'Hybrid', 'Remote',
     'มีค่าตอบแทน', 'ภาคกลาง', 'ต่างจังหวัด', 'ต่างประเทศ', 'รับฝึกมากกว่า 2 เดือน',
-    'BTS สายสุขุมวิท', 'BTS สายสีลม', 'MRT สายสีน้ำเงิน', 'MRT สายสีม่วง', 'MRT สายสีเหลือง', 'MRT สายสีชมพู', 'Airport Rail Link', 'รถไฟฟ้าสายสีแดง'
+    ...TRANSIT_LINES.map(l => l.name)
 ];
+
+const LINE_NAMES = TRANSIT_LINES.map(l => l.name);
+const VALID_STATIONS = new Set(TRANSIT_LINES.flatMap(l => l.stations.map(st => `${l.id}:${st}`)));
+const LINE_BY_ID = Object.fromEntries(TRANSIT_LINES.map(l => [l.id, l]));
 
 const yesNo = (v) => (v === 'yes' || v === 'no' ? v : '');
 
@@ -151,8 +157,18 @@ function normalizeName(name) {
         .replace(/[^a-z0-9ก-๙]/g, '');
 }
 
+// เก็บเฉพาะสถานีที่มีอยู่จริง (สูงสุด 6) และให้ชื่อสายใน tags ตรงกับสถานีที่เลือกเสมอ
+// (ถ้าไม่ได้ส่ง stations มา จะไม่แตะ tags เดิม)
+function withStations(fields, rawStations) {
+    if (!Array.isArray(rawStations)) return fields;
+    const stations = [...new Set(rawStations)].filter(v => VALID_STATIONS.has(v)).slice(0, 6);
+    const lines = [...new Set(stations.map(v => LINE_BY_ID[v.split(':')[0]].name))];
+    const tags = fields.tags.filter(t => !LINE_NAMES.includes(t));
+    return { ...fields, stations, tags: [...tags, ...lines] };
+}
+
 function companyFields(body) {
-    return {
+    return withStations({
         name: cleanText(body.name, 150),
         loc: cleanText(body.loc, 200),
         sector: SECTORS.includes(body.sector) ? body.sector : 'เอกชน',
@@ -164,7 +180,7 @@ function companyFields(body) {
         timeEnd: cleanText(body.timeEnd, 10),
         contact: cleanText(body.contact, 200),
         tags: cleanTags(body.tags)
-    };
+    }, body.stations);
 }
 
 const plain = (doc) => (doc && typeof doc.toObject === 'function' ? doc.toObject() : doc);
