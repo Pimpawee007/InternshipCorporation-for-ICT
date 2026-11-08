@@ -3,120 +3,163 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#006C6C">
+    <meta name="robots" content="noindex">
     <title>Admin - Internship Corporation</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        .admin-container { width: 90%; max-width: 1000px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        .login-form { display: flex; flex-direction: column; gap: 15px; max-width: 400px; margin: 0 auto; }
-        .login-form input { padding: 12px; border: 1px solid #ccc; border-radius: 6px; }
-        .btn-login { background-color: #249D8F; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        
-        #adminPanel { display: none; }
-        .table-responsive { overflow-x: auto; margin-top: 20px;}
-        table { width: 100%; border-collapse: collapse; min-width: 700px; table-layout: fixed;}
-        th, td { border: 1px solid #eee; padding: 12px; text-align: left; vertical-align: top;}
-        th { background-color: #09251C; color: #fff; }
-        
-        th:nth-child(1) { width: 25%; }
-        th:nth-child(2) { width: 15%; }
-        th:nth-child(3) { width: 25%; }
-        th:nth-child(4) { width: 20%; }
-        th:nth-child(5) { width: 15%; } /* จัดการ */
-
-        .cell-break { word-wrap: break-word; overflow-wrap: break-word; word-break: break-word; hyphens: auto; }
-        .link-break { word-break: break-all; color: #249D8F; text-decoration: none;}
-        .link-break:hover { text-decoration: underline; }
-
-        .btn-edit { background-color: #E9C46A; color: #000; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; margin-right: 5px; font-weight: bold;}
-        .btn-del { background-color: #ff3b3b; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;}
-        .header-flex { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;}
-
-        /* ฟอร์มแก้ไข */
-        .edit-modal-content { background:#fff; padding:25px; border-radius:12px; max-width:550px; width:90%; margin: 20px auto; max-height:85vh; overflow-y:auto; border: 2px solid #000; }
-        .edit-form label { font-weight: bold; margin-top: 10px; display: block; color: #333;}
-        .edit-form input, .edit-form textarea, .edit-form select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; margin-top: 5px; font-family: inherit;}
-        .edit-actions { display: flex; gap: 15px; margin-top: 20px; }
-        .btn-save { background: #249D8F; color: #fff; padding: 12px; border: none; border-radius: 6px; cursor: pointer; flex: 1; font-weight: bold;}
-        .btn-cancel { background: #ff3b3b; color: #fff; padding: 12px; border: none; border-radius: 6px; cursor: pointer; flex: 1; font-weight: bold;}
-    </style>
+    <script src="transit-data.js" defer></script>
+    <script src="tag-data.js" defer></script>
+    <script src="common.js" defer></script>
+    <script src="admin.js" defer></script>
 </head>
-<body style="background-color: #F8EADC;">
+<body class="admin-body">
 
-    <div class="admin-container" id="loginSection">
-        <h2 style="text-align: center; color: #09251C; margin-bottom: 20px;">🔒 เข้าสู่ระบบผู้ดูแล (Admin)</h2>
-        <form class="login-form" id="loginForm">
-            <input type="text" id="username" placeholder="Username" required>
-            <input type="password" id="password" placeholder="Password" required>
-            <button type="submit" class="btn-login">Login</button>
-            <a href="index.html" style="text-align: center; color: #888; text-decoration: none; margin-top: 10px;">กลับหน้าหลัก</a>
-        </form>
+    <div class="login-wrap" id="loginWrap">
+        <div class="login-memo">
+            <img src="assets/character/shy.webp" alt="Memo กำลังเขินอาย" width="448" height="560">
+            <div class="speech-bubble bubble-left">พื้นที่ของแอดมินนะ...<br>ขอรหัสหน่อยน้า</div>
+        </div>
+        <div class="admin-container" id="loginSection">
+            <h2 class="login-title"><svg class="icon"><use href="#i-lock"/></svg>เข้าสู่ระบบผู้ดูแล (Admin)</h2>
+            <form class="login-form" id="loginForm">
+                <input type="text" id="username" placeholder="Username" autocomplete="username" required>
+                <input type="password" id="password" placeholder="Password" autocomplete="current-password" required>
+                <button type="submit" class="btn-login">Login</button>
+                <a href="index.html" class="back-link">กลับหน้าหลัก</a>
+            </form>
+        </div>
     </div>
 
-    <div class="admin-container" id="adminPanel">
-        <div class="header-flex">
-            <h2>⚙️ จัดการข้อมูลบริษัท</h2>
-            <div>
-                <a href="index.html" style="margin-right: 15px; text-decoration: none; color: #249D8F; font-weight: bold;">ดูหน้าเว็บ</a>
-                <button onclick="logout()" style="padding: 8px 16px; cursor: pointer; background-color: #eee; border: 1px solid #ccc; border-radius: 4px;">ออกจากระบบ</button>
+    <div class="container">
+        <div class="admin-container" id="adminPanel">
+            <div class="header-flex">
+                <div>
+                    <h2><svg class="icon"><use href="#i-dashboard"/></svg>จัดการข้อมูลบริษัท</h2>
+                    <span class="count-pill" id="adminCount"></span>
+                </div>
+                <div class="admin-actions">
+                    <a href="index.html" class="btn-outline"><svg class="icon"><use href="#i-eye"/></svg>ดูหน้าเว็บ</a>
+                    <button onclick="logout()" class="btn-logout"><svg class="icon"><use href="#i-logout"/></svg>ออกจากระบบ</button>
+                </div>
             </div>
-        </div>
-        
-        <div class="table-responsive">
-            <table>
-                <thead>
-                    <tr>
-                        <th>ชื่อบริษัท</th>
-                        <th>ประเภท</th>
-                        <th>สถานที่</th>
-                        <th>ติดต่อ</th>
-                        <th>จัดการ</th>
-                    </tr>
-                </thead>
-                <tbody id="companyTableBody">
-                </tbody>
-            </table>
+
+            <div class="admin-tabs" role="tablist">
+                <button type="button" class="admin-tab active" role="tab" data-tab="pending" aria-selected="true"><svg class="icon"><use href="#i-inbox"/></svg>รออนุมัติ<span class="tab-badge" id="badgePending"></span></button>
+                <button type="button" class="admin-tab" role="tab" data-tab="companies" aria-selected="false"><svg class="icon"><use href="#i-building"/></svg>บริษัททั้งหมด</button>
+                <button type="button" class="admin-tab" role="tab" data-tab="reviews" aria-selected="false"><svg class="icon"><use href="#i-message"/></svg>รีวิว</button>
+                <button type="button" class="admin-tab" role="tab" data-tab="reports" aria-selected="false"><svg class="icon"><use href="#i-flag"/></svg>แจ้งข้อมูลผิด<span class="tab-badge" id="badgeReports"></span></button>
+            </div>
+
+            <!-- รออนุมัติ -->
+            <div class="admin-pane" id="pane-pending">
+                <h3 class="pane-title">บริษัทที่ส่งเข้ามาใหม่</h3>
+                <div id="pendingCompanies" class="admin-cards"></div>
+                <h3 class="pane-title">รีวิวที่รอตรวจ</h3>
+                <div id="pendingReviews" class="admin-cards"></div>
+            </div>
+
+            <!-- บริษัททั้งหมด -->
+            <div class="admin-pane hidden" id="pane-companies">
+                <label class="search-field admin-search">
+                    <svg class="icon"><use href="#i-search"/></svg>
+                    <input type="text" id="adminSearch" placeholder="ค้นหาชื่อบริษัท...">
+                </label>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ชื่อบริษัท</th>
+                                <th>ประเภท</th>
+                                <th>สถานที่</th>
+                                <th>ติดต่อ</th>
+                                <th>จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="companyTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- รีวิวทั้งหมด -->
+            <div class="admin-pane hidden" id="pane-reviews">
+                <div id="allReviews" class="admin-cards"></div>
+            </div>
+
+            <!-- แจ้งข้อมูลผิด -->
+            <div class="admin-pane hidden" id="pane-reports">
+                <div id="reportList" class="admin-cards"></div>
+            </div>
         </div>
     </div>
 
     <!-- Edit Modal -->
     <div id="editModal" class="modal">
         <div class="edit-modal-content">
-            <h3 style="border-bottom: 2px solid #E9C46A; padding-bottom: 10px;">✏️ แก้ไขข้อมูลบริษัท</h3>
+            <h3 class="edit-title"><svg class="icon"><use href="#i-pencil"/></svg>แก้ไขข้อมูลบริษัท</h3>
             <form id="editForm" class="edit-form">
                 <input type="hidden" id="editId">
-                
-                <label>ชื่อบริษัท</label>
+
+                <label for="editStatus">สถานะ</label>
+                <select id="editStatus">
+                    <option value="approved">อนุมัติแล้ว (แสดงบนเว็บ)</option>
+                    <option value="pending">รออนุมัติ (ซ่อน)</option>
+                </select>
+
+                <label for="editName">ชื่อบริษัท</label>
                 <input type="text" id="editName" required>
-                
-                <label>สถานที่ตั้ง</label>
+
+                <label for="editLoc">สถานที่ตั้ง</label>
                 <input type="text" id="editLoc" required>
-                
-                <label>ประเภท (Sector)</label>
+
+                <label for="editSector">ประเภท (Sector)</label>
                 <select id="editSector" required>
                     <option value="เอกชน">เอกชน</option>
                     <option value="ภาครัฐ">ภาครัฐ</option>
                     <option value="รัฐวิสาหกิจ">รัฐวิสาหกิจ</option>
                 </select>
-                
-                <label>คำอธิบายพอสังเขป</label>
+
+                <label for="editDesc">คำอธิบายพอสังเขป</label>
                 <textarea id="editDesc" rows="3"></textarea>
-                
-                <label>ค่าตอบแทน</label>
+
+                <label for="editPay">ค่าตอบแทน</label>
                 <input type="text" id="editPay">
-                
+
                 <label>ตำแหน่งงานที่เปิดรับ</label>
+                <div id="editPositions"></div>
+                <label class="sub-label" for="editPos">เขียนเพิ่มเติม (ไม่บังคับ)</label>
                 <input type="text" id="editPos">
-                
-                <label>ระยะเวลา</label>
-                <input type="text" id="editTime">
-                
-                <label>ช่องทางติดต่อ</label>
+
+                <label>ระยะเวลาการรับสมัคร</label>
+                <div class="date-group">
+                    <div>
+                        <label class="sub-label" for="editTimeStart">วันที่เริ่ม</label>
+                        <input type="date" id="editTimeStart">
+                    </div>
+                    <div>
+                        <label class="sub-label" for="editTimeEnd">วันที่สิ้นสุด</label>
+                        <input type="date" id="editTimeEnd">
+                    </div>
+                </div>
+                <label class="sub-label" for="editTime">หรือเขียนเป็นข้อความ (ใช้เมื่อไม่ได้ใส่วันที่)</label>
+                <input type="text" id="editTime" placeholder="เช่น รับตลอดปี">
+
+                <label for="editContact">ช่องทางติดต่อ</label>
                 <input type="text" id="editContact">
-                
-                <label>Tags สำหรับค้นหา (คั่นด้วยลูกน้ำ ,)</label>
-                <input type="text" id="editTags" placeholder="เช่น ภาคกลาง, มีค่าตอบแทน">
-                
+
+                <label>รถไฟฟ้าใกล้บริษัท</label>
+                <div id="editStations"></div>
+
+                <label for="editTags">Tags สำหรับค้นหา (คั่นด้วยลูกน้ำ ,)</label>
+                <input type="text" id="editTags" placeholder="เช่น ภาคกลาง, มีค่าตอบแทน, Backend, Hybrid">
+                <p class="field-hint" id="editTagHint"></p>
+
                 <div class="edit-actions">
                     <button type="submit" class="btn-save">บันทึกการแก้ไข</button>
                     <button type="button" class="btn-cancel" onclick="closeEditModal()">ยกเลิก</button>
@@ -125,149 +168,9 @@
         </div>
     </div>
 
-    <script>
-        const API_URL = '/api';
-        let companiesCache = [];
-
-        if (sessionStorage.getItem('adminToken')) {
-            showPanel();
-        }
-
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const u = document.getElementById('username').value;
-            const p = document.getElementById('password').value;
-
-            try {
-                const res = await fetch(`${API_URL}/login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: u, password: p })
-                });
-                const data = await res.json();
-                
-                if (data.success) {
-                    sessionStorage.setItem('adminToken', data.token);
-                    showPanel();
-                } else {
-                    alert(data.message);
-                }
-            } catch (err) {
-                alert('ไม่สามารถเชื่อมต่อ Server ได้');
-            }
-        });
-
-        function showPanel() {
-            document.getElementById('loginSection').style.display = 'none';
-            document.getElementById('adminPanel').style.display = 'block';
-            loadData();
-        }
-
-        function logout() {
-            sessionStorage.removeItem('adminToken');
-            location.reload();
-        }
-
-        async function loadData() {
-            const res = await fetch(`${API_URL}/companies`);
-            companiesCache = await res.json();
-            const tbody = document.getElementById('companyTableBody');
-            tbody.innerHTML = '';
-            
-            companiesCache.forEach(c => {
-                let contactHTML = '-';
-                if(c.contact) {
-                    if(c.contact.startsWith('http') || c.contact.startsWith('www.')) {
-                        let url = c.contact.startsWith('www.') ? 'http://' + c.contact : c.contact;
-                        contactHTML = `<a href="${url}" target="_blank" class="link-break">${c.contact}</a>`;
-                    } else {
-                        contactHTML = c.contact;
-                    }
-                }
-
-                tbody.innerHTML += `
-                    <tr>
-                        <td class="cell-break">${c.name}</td>
-                        <td>${c.sector}</td>
-                        <td class="cell-break">${c.loc}</td>
-                        <td class="cell-break">${contactHTML}</td>
-                        <td>
-                            <button class="btn-edit" onclick="openEditModal('${c.id}')">แก้ไข</button>
-                            <button class="btn-del" onclick="deleteCompany('${c.id}')">ลบ</button>
-                        </td>
-                    </tr>
-                `;
-            });
-        }
-
-        async function deleteCompany(id) {
-            if(confirm('คุณแน่ใจหรือไม่ที่จะลบข้อมูลนี้?')) {
-                await fetch(`${API_URL}/companies/${id}`, { method: 'DELETE' });
-                loadData();
-            }
-        }
-
-        function openEditModal(id) {
-            const data = companiesCache.find(c => c.id === id);
-            if (!data) return;
-
-            document.getElementById('editId').value = data.id;
-            document.getElementById('editName').value = data.name || '';
-            document.getElementById('editLoc').value = data.loc || '';
-            document.getElementById('editSector').value = data.sector || 'เอกชน';
-            document.getElementById('editDesc').value = data.desc || '';
-            document.getElementById('editPay').value = data.pay || '';
-            document.getElementById('editPos').value = data.pos || '';
-            document.getElementById('editTime').value = data.time || '';
-            document.getElementById('editContact').value = data.contact || '';
-            
-            const tagsStr = data.tags ? data.tags.join(', ') : '';
-            document.getElementById('editTags').value = tagsStr;
-
-            document.getElementById('editModal').style.display = 'flex';
-        }
-
-        function closeEditModal() {
-            document.getElementById('editModal').style.display = 'none';
-        }
-
-        document.getElementById('editForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const id = document.getElementById('editId').value;
-            
-            const rawTags = document.getElementById('editTags').value;
-            const tagsArray = rawTags.split(',').map(t => t.trim()).filter(t => t.length > 0);
-
-            const payload = {
-                name: document.getElementById('editName').value,
-                loc: document.getElementById('editLoc').value,
-                sector: document.getElementById('editSector').value,
-                desc: document.getElementById('editDesc').value,
-                pay: document.getElementById('editPay').value,
-                pos: document.getElementById('editPos').value,
-                time: document.getElementById('editTime').value,
-                contact: document.getElementById('editContact').value,
-                tags: tagsArray
-            };
-
-            try {
-                const res = await fetch(`${API_URL}/companies/${id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const result = await res.json();
-                if(result.success) {
-                    alert('แก้ไขข้อมูลเรียบร้อยแล้ว!');
-                    closeEditModal();
-                    loadData();
-                } else {
-                    alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
-                }
-            } catch (err) {
-                alert('ไม่สามารถเชื่อมต่อ Server ได้');
-            }
-        });
-    </script>
+    <div id="memoToast" class="toast" role="status" aria-live="polite">
+        <img id="memoToastImg" src="assets/character/excited.webp" alt="" width="479" height="560">
+        <p id="memoToastText"></p>
+    </div>
 </body>
 </html>

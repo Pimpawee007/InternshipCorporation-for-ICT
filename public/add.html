@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#006C6C">
+    <title>เพิ่มข้อมูลบริษัท - Internship Corporation for ICT</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="transit-data.js" defer></script>
+    <script src="tag-data.js" defer></script>
+    <script src="common.js" defer></script>
+    <script src="add.js" defer></script>
+</head>
+<body>
+    <nav class="topbar">
+        <div class="container nav-wrapper">
+            <div class="nav-left">
+                <a href="index.html" class="brand" aria-label="Internship ICT หน้าแรก">
+                    <img src="assets/memo-head.webp" alt="" width="36" height="36">
+                    <span>Internship <b>ICT</b></span>
+                </a>
+            </div>
+            <div class="nav-right">
+                <a href="index.html#find">ค้นหาบริษัท (Find)</a>
+                <a href="add.html" class="is-current" aria-current="page">เพิ่มข้อมูลบริษัท (Add)</a>
+                <a href="index.html#more">ข้อมูลเพิ่มเติม (More info)</a>
+                <a href="index.html#contact-section">ติดต่อคณะ (Contact)</a>
+            </div>
+            <a href="admin.html" class="btn-admin-nav"><svg class="icon"><use href="#i-key"/></svg><span>Admin</span></a>
+        </div>
+    </nav>
+
+    <main class="container add-page">
+        <a href="index.html" class="back-link-inline"><svg class="icon"><use href="#i-arrow-left"/></svg>กลับหน้าหลัก</a>
+
+        <section class="add-hero">
+            <div>
+                <h1>เพิ่มข้อมูลบริษัท</h1>
+                <p>ช่วยกันแชร์ที่ฝึกงานดี ๆ ให้รุ่นน้องและเพื่อน ๆ ข้อมูลจะขึ้นเว็บหลังแอดมินตรวจสอบ</p>
+                <ol class="add-steps">
+                    <li><span>1</span>กรอกข้อมูล</li>
+                    <li><span>2</span>แอดมินตรวจ</li>
+                    <li><span>3</span>ขึ้นเว็บ</li>
+                </ol>
+            </div>
+            <div class="add-memo">
+                <div class="speech-bubble bubble-left">รู้จักบริษัทดี ๆ?<br>แชร์ให้เพื่อนหน่อย!</div>
+                <img src="assets/character/thumbs-up.webp" alt="Memo กำลังยกนิ้วโป้งให้" width="455" height="560">
+            </div>
+        </section>
+
+        <section id="add" class="content-section">
+            <form class="add-form" id="addCompanyForm" novalidate>
+                <fieldset class="form-card">
+                    <legend><svg class="icon"><use href="#i-building"/></svg>ข้อมูลหลัก</legend>
+                    <div class="form-group">
+                        <label for="addName">ชื่อบริษัท <span class="req">*</span></label>
+                        <input type="text" id="addName" placeholder="กรอกชื่อบริษัท" maxlength="150" required autocomplete="off">
+                        <div id="dupHint" class="dup-hint hidden" role="status"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="addLoc">สถานที่ตั้ง <span class="req">*</span></label>
+                            <input type="text" id="addLoc" placeholder="เขต, จังหวัด หรือ แนวรถไฟฟ้า" maxlength="200" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="addSector">ประเภทบริษัท (Sector)</label>
+                            <select id="addSector" required>
+                                <option value="เอกชน">เอกชน</option>
+                                <option value="ภาครัฐ">ภาครัฐ</option>
+                                <option value="รัฐวิสาหกิจ">รัฐวิสาหกิจ</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="addContact">ช่องทางติดต่อ (Website / Email / Phone)</label>
+                        <input type="text" id="addContact" placeholder="เช่น https://company.com หรือ hr@company.com" maxlength="200">
+                        <p class="field-hint">ถ้าใส่เว็บไซต์หรืออีเมลบริษัท Memo จะดึงโลโก้มาให้อัตโนมัติ</p>
+                    </div>
+                </fieldset>
+
+                <fieldset class="form-card">
+                    <legend><svg class="icon"><use href="#i-tag"/></svg>Tag สำหรับการค้นหา</legend>
+                    <div class="form-group">
+                        <span class="label">ตำแหน่งที่เปิดรับ (เลือกได้ไม่จำกัด)</span>
+                        <p class="field-hint">เลือกหมวดก่อน แล้วกดตำแหน่ง หรือพิมพ์ค้นหาได้เลย ตำแหน่งที่เลือกจะใช้ตอนคนค้นหาในหน้าแรก</p>
+                        <div id="addPositionPicker"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="addPos">เขียนเพิ่มเติม (ไม่บังคับ)</label>
+                        <input type="text" id="addPos" maxlength="200" placeholder="ตำแหน่งที่ไม่มีในปุ่ม หรือชื่อตามประกาศ เช่น ผู้ช่วยวิจัยโปรเจกต์ FPGA">
+                    </div>
+                    <div class="form-group">
+                        <span class="label">รูปแบบการทำงาน</span>
+                        <div class="chip-group" id="addWorkmodeChips"></div>
+                    </div>
+                    <div class="form-group">
+                        <span class="label">รถไฟฟ้าใกล้บริษัท (ถ้ามี · เลือกได้ไม่เกิน 4 สถานี)</span>
+                        <p class="field-hint">เลือกสายก่อน แล้วกดสถานีที่ใกล้บริษัท</p>
+                        <div id="addStationPicker"></div>
+                    </div>
+                    <div class="form-group">
+                        <span class="label">อื่น ๆ</span>
+                        <div class="add-tag-grid chip-group" id="addOtherChips"></div>
+                    </div>
+                </fieldset>
+
+                <button type="button" class="btn-toggle" id="btnToggleExtra" aria-expanded="false" aria-controls="extraFields">
+                    <svg class="icon chevron"><use href="#i-chev-down"/></svg><span class="toggle-label">รายละเอียดเพิ่มเติม (ไม่บังคับ)</span>
+                </button>
+
+                <div id="extraFields" class="hidden">
+                    <fieldset class="form-card">
+                        <legend><svg class="icon"><use href="#i-file"/></svg>รายละเอียดเพิ่มเติม</legend>
+                        <div class="form-group">
+                            <label for="addDesc">คำอธิบายพอสังเขป</label>
+                            <textarea id="addDesc" rows="3" maxlength="1000" placeholder="ลักษณะงานเบื้องต้น"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <span class="label">ค่าตอบแทน</span>
+                            <div class="radio-group chip-group">
+                                <label class="chip"><input type="radio" name="payType" value="amount"><span>กรอกจำนวน</span></label>
+                                <label class="chip"><input type="radio" name="payType" value="agreed"><span>ตามแต่ตกลง</span></label>
+                                <label class="chip"><input type="radio" name="payType" value="none" checked><span>ไม่มี</span></label>
+                            </div>
+                            <input type="text" id="payAmountInput" class="hidden mt-2" maxlength="100" placeholder="เช่น 12,000 - 15,000 บาท/เดือน">
+                        </div>
+
+
+                        <div class="form-group">
+                            <span class="label">ระยะเวลาการรับสมัคร</span>
+                            <div class="date-group">
+                                <div>
+                                    <label class="sub-label" for="addTimeStart">วันที่เริ่ม</label>
+                                    <input type="date" id="addTimeStart">
+                                </div>
+                                <div>
+                                    <label class="sub-label" for="addTimeEnd">วันที่สิ้นสุด</label>
+                                    <input type="date" id="addTimeEnd">
+                                </div>
+                            </div>
+                            <p class="field-hint">ใส่วันที่สิ้นสุดไว้ เว็บจะขึ้นป้าย "ใกล้ปิดรับ" ให้อัตโนมัติ</p>
+                        </div>
+                    </fieldset>
+                </div>
+
+                <button type="submit" class="btn-submit" id="btnSubmitAdd">ส่งข้อมูลให้แอดมินตรวจ</button>
+            </form>
+
+            <!-- หลังส่งสำเร็จ -->
+            <div id="addSuccess" class="add-success hidden" role="status">
+                <img src="assets/character/excited.webp" alt="Memo กำลังตื่นเต้นดีใจ" width="479" height="560">
+                <h2>เย้! ขอบคุณที่แชร์นะ</h2>
+                <p>Memo ส่งข้อมูล <b id="addSuccessName"></b> ให้แอดมินแล้ว จะขึ้นเว็บหลังตรวจสอบเสร็จ</p>
+                <div class="add-success-actions">
+                    <button type="button" class="btn-filter-cancel" id="btnAddAnother">เพิ่มอีกบริษัท</button>
+                    <a href="index.html" class="btn-primary">กลับหน้าหลัก</a>
+                </div>
+            </div>
+        </section>
+
+        <footer class="site-footer">
+            <img src="assets/memo-head.webp" alt="" width="28" height="28">
+            <span>Internship Corporation for ICT · ทำโดยนักศึกษา ICT มหิดล</span>
+        </footer>
+    </main>
+
+    <nav class="tabbar" aria-label="เมนูหลัก">
+        <a href="index.html#find" class="tab" data-tab="find"><svg class="icon"><use href="#i-search"/></svg><span>ค้นหา</span></a>
+        <a href="add.html" class="tab active" data-tab="add" aria-current="page"><svg class="icon"><use href="#i-plus"/></svg><span>เพิ่ม</span></a>
+        <a href="index.html#more" class="tab" data-tab="more"><svg class="icon"><use href="#i-info"/></svg><span>ข้อมูล</span></a>
+        <a href="index.html#contact-section" class="tab" data-tab="contact-section"><svg class="icon"><use href="#i-mail"/></svg><span>ติดต่อ</span></a>
+    </nav>
+
+    <div id="memoToast" class="toast" role="status" aria-live="polite">
+        <img id="memoToastImg" src="assets/character/excited.webp" alt="" width="479" height="560">
+        <p id="memoToastText"></p>
+    </div>
+</body>
+</html>
