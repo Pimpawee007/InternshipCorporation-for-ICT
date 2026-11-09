@@ -6,6 +6,13 @@
     <meta name="theme-color" content="#006C6C">
     <title>เพิ่มข้อมูลบริษัท - Internship Corporation for ICT</title>
     <link rel="stylesheet" href="styles.css">
+    <script>
+        // ตั้งโหมดสีก่อนหน้าเว็บแสดง (กันจอกระพริบ) — รายละเอียดอยู่ใน common.js
+        try { var p = JSON.parse(localStorage.getItem('ict-prefs') || '{}'), t = p.theme || 'auto';
+              document.documentElement.dataset.theme = (t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches)) ? 'dark' : 'light';
+              if (p.fontSize === 'small') document.documentElement.style.fontSize = '15px';
+              if (p.fontSize === 'large') document.documentElement.style.fontSize = '18px'; } catch (e) {}
+    </script>
     <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
     <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
@@ -17,7 +24,7 @@
     <script src="common.js" defer></script>
     <script src="add.js" defer></script>
 </head>
-<body>
+<body data-page="add">
     <nav class="topbar">
         <div class="container nav-wrapper">
             <div class="nav-left">
@@ -27,12 +34,16 @@
                 </a>
             </div>
             <div class="nav-right">
-                <a href="index.html#find">ค้นหาบริษัท (Find)</a>
-                <a href="add.html" class="is-current" aria-current="page">เพิ่มข้อมูลบริษัท (Add)</a>
-                <a href="index.html#more">ข้อมูลเพิ่มเติม (More info)</a>
-                <a href="index.html#contact-section">ติดต่อคณะ (Contact)</a>
+                <a href="index.html#find" class="nav-item" data-nav="find" title="ค้นหา"><span class="nav-ic mint"><svg class="icon"><use href="#i-search"/></svg></span><span class="nav-label">ค้นหา</span></a>
+                <a href="add.html" class="nav-item" data-nav="add" title="เพิ่มบริษัท"><span class="nav-ic pink"><svg class="icon"><use href="#i-plus"/></svg></span><span class="nav-label">เพิ่มบริษัท</span></a>
+                <a href="me.html" class="nav-item" data-nav="me" title="ที่บันทึกไว้"><span class="nav-ic sky"><svg class="icon"><use href="#i-heart"/></svg></span><span class="nav-label">ที่บันทึกไว้</span><span class="nav-badge" data-saved-badge></span></a>
+                <a href="index.html#more" class="nav-item" data-nav="more" title="ข้อมูล"><span class="nav-ic butter"><svg class="icon"><use href="#i-info"/></svg></span><span class="nav-label">ข้อมูล</span></a>
+                <a href="index.html#contact-section" class="nav-item" data-nav="contact" title="ติดต่อ"><span class="nav-ic mint"><svg class="icon"><use href="#i-mail"/></svg></span><span class="nav-label">ติดต่อ</span></a>
             </div>
-            <a href="admin.html" class="btn-admin-nav"><svg class="icon"><use href="#i-key"/></svg><span>Admin</span></a>
+            <div class="nav-actions">
+                <button type="button" class="icon-btn" data-open-settings aria-label="ตั้งค่า" title="ตั้งค่า"><svg class="icon"><use href="#i-settings"/></svg></button>
+                <a href="admin.html" class="btn-admin-nav icon-btn" aria-label="Admin" title="Admin"><svg class="icon"><use href="#i-key"/></svg><span class="visually-hidden">Admin</span></a>
+            </div>
         </div>
     </nav>
 
@@ -166,15 +177,14 @@
             </div>
         </section>
 
-        <footer class="site-footer">
-            <img src="assets/memo-head.webp" alt="" width="28" height="28">
-            <span>Internship Corporation for ICT · ทำโดยนักศึกษา ICT มหิดล</span>
-        </footer>
     </main>
+
+    <footer id="siteFooter" class="site-footer2"></footer>
 
     <nav class="tabbar" aria-label="เมนูหลัก">
         <a href="index.html#find" class="tab" data-tab="find"><svg class="icon"><use href="#i-search"/></svg><span>ค้นหา</span></a>
         <a href="add.html" class="tab active" data-tab="add" aria-current="page"><svg class="icon"><use href="#i-plus"/></svg><span>เพิ่ม</span></a>
+        <a href="me.html" class="tab" data-tab="me"><svg class="icon"><use href="#i-heart"/></svg><span>ของฉัน</span></a>
         <a href="index.html#more" class="tab" data-tab="more"><svg class="icon"><use href="#i-info"/></svg><span>ข้อมูล</span></a>
         <a href="index.html#contact-section" class="tab" data-tab="contact-section"><svg class="icon"><use href="#i-mail"/></svg><span>ติดต่อ</span></a>
     </nav>

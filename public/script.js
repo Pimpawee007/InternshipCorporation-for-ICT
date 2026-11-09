@@ -4,7 +4,7 @@
 let companyData = [];
 let currentCompanyId = null;
 let savedSet = getSaved();
-let compareSet = new Set();      // เลือกได้สูงสุด 3 บริษัท
+let compareSet = new Set(readList(COMPARE_KEY).slice(0, 3));  // เลือกได้สูงสุด 3 บริษัท (จำไว้ในเบราว์เซอร์)
 let popularTags = [];            // จาก /api/stats/popular
 const MAX_COMPARE = 3;
 
@@ -28,6 +28,7 @@ async function fetchCompanies() {
         companyData = (await response.json()).map(c => ({ ...c, tags: normalizeTags(c.tags) }));
         applyView();
         updateStats();
+        renderCategoryTiles();
         loadPopular();
         openFromUrl();
     } catch (error) {
@@ -41,8 +42,10 @@ async function fetchCompanies() {
 
 // เปิดรายละเอียดบริษัทจากลิงก์ เช่น index.html?company=c123
 function openFromUrl() {
-    const id = new URLSearchParams(location.search).get('company');
-    if (id && companyData.some(c => c.id === id)) openDetailsModal(id);
+    const params = new URLSearchParams(location.search);
+    const id = params.get('company');
+    if (id && companyData.some(c => c.id === id)) return openDetailsModal(id);
+    if (params.has('compare') && compareSet.size >= 2) openCompare();
 }
 
 // ---------------------------------------------------------------------------
@@ -257,6 +260,7 @@ function toggleSaved(id) {
     });
     if (currentCompanyId === id) updateModalSaveBtn();
     updateSavedCount();
+    updateNavSavedBadge();
     showToast(on ? 'Memo เก็บไว้ให้แล้ว ดูได้ที่ปุ่ม "ที่บันทึกไว้"' : 'เอาออกจากที่บันทึกไว้แล้ว', 'happy');
     if (view.savedOnly && !on) applyView();
 }
@@ -391,6 +395,7 @@ function openDetailsModal(companyId) {
     const data = companyData.find(c => c.id === companyId);
     if (!data) return;
     currentCompanyId = companyId;
+    addRecent(companyId);
 
     document.getElementById('modalLogo').innerHTML = logoHTML(data, 'lg');
     document.getElementById('modalCompanyName').textContent = data.name;
@@ -635,6 +640,31 @@ document.querySelectorAll('.stat-tile').forEach(tile => tile.addEventListener('c
 }));
 
 // ---------------------------------------------------------------------------
+// หมวดตำแหน่งยอดนิยม (การ์ด 8 หมวด)
+// ---------------------------------------------------------------------------
+function renderCategoryTiles() {
+    const box = document.getElementById('categoryTiles');
+    if (!box) return;
+    box.innerHTML = POSITION_CATEGORIES.map(cat => {
+        const n = companyData.filter(c => (c.tags || []).some(t => CATEGORY_OF_POSITION[t] === cat)).length;
+        return `<button type="button" class="cat-tile" data-cat="${cat.id}" style="--cat:${cat.color}">
+            <span class="cat-icon">${icon(CATEGORY_ICON[cat.id] || 'briefcase')}</span>
+            <span class="cat-name">${escapeHTML(cat.name)}</span>
+            <span class="cat-count">${n} บริษัท</span>
+        </button>`;
+    }).join('');
+}
+
+document.getElementById('categoryTiles').addEventListener('click', (e) => {
+    const tile = e.target.closest('[data-cat]');
+    if (!tile) return;
+    view.filters = { position: [`cat:${tile.dataset.cat}`] };
+    updateFilterCount();
+    applyView();
+    document.getElementById('find').scrollIntoView({ behavior: 'smooth' });
+});
+
+// ---------------------------------------------------------------------------
 // ปุ่ม Tag ยอดนิยม (ข้างปุ่ม "ที่บันทึกไว้")
 // ---------------------------------------------------------------------------
 async function loadPopular() {
@@ -713,8 +743,9 @@ function toggleCompare(id) {
 }
 
 function updateCompareUI() {
-    // ตัดบริษัทที่ไม่มีแล้วออก
-    compareSet.forEach(id => { if (!companyData.some(c => c.id === id)) compareSet.delete(id); });
+    // ตัดบริษัทที่ไม่มีแล้วออก (รอให้โหลดข้อมูลเสร็จก่อน)
+    if (companyData.length) compareSet.forEach(id => { if (!companyData.some(c => c.id === id)) compareSet.delete(id); });
+    writeList(COMPARE_KEY, [...compareSet]);
     document.querySelectorAll('[data-compare]').forEach(btn => {
         const on = compareSet.has(btn.dataset.compare);
         btn.classList.toggle('is-active', on);
