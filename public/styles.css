@@ -2476,7 +2476,10 @@ body.has-compare .toast { bottom: calc(var(--tab-h) + 96px + env(safe-area-inset
 .tab-body > p:first-of-type {grid-column: 2; grid-row: 1; color: var(--muted); margin: 0; white-space: nowrap;}
 .tab-body > p:not(:first-of-type) {grid-column: 2; color: var(--muted); margin: 0;}
 .tab-body > p:nth-of-type(2) {margin-top: var(--sp-1);}
-.tab-body p { color: var(--muted); }
+@keyframes pulse-blink {0%, 100% {opacity: 1;} 50% {opacity: 0.4;}}
+.tab-body p { color: var(--muted);}
+.tab-body p a {display: inline-block; transition: transform 0.3s ease-in-out, color 0.3s ease-in-out;}
+.tab-body p a:hover {color: rgb(255, 160, 188); font-size: large; font-style: italic; transform: scale(1.05); animation: pulse-blink 1s infinite ease-in-out;}
 
 /* info cards now use tab-card */
 .info-grid .tab-card { margin-top: 0; }
