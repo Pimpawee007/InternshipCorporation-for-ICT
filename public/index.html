@@ -6,6 +6,13 @@
     <meta name="theme-color" content="#006C6C">
     <title>Internship Corporation for ICT</title>
     <link rel="stylesheet" href="styles.css">
+    <script>
+        // ตั้งโหมดสีก่อนหน้าเว็บแสดง (กันจอกระพริบ) — รายละเอียดอยู่ใน common.js
+        try { var p = JSON.parse(localStorage.getItem('ict-prefs') || '{}'), t = p.theme || 'auto';
+              document.documentElement.dataset.theme = (t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches)) ? 'dark' : 'light';
+              if (p.fontSize === 'small') document.documentElement.style.fontSize = '15px';
+              if (p.fontSize === 'large') document.documentElement.style.fontSize = '18px'; } catch (e) {}
+    </script>
     <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
     <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
@@ -17,7 +24,7 @@
     <script src="common.js" defer></script>
     <script src="script.js" defer></script>
 </head>
-<body>
+<body data-page="home">
     <nav class="topbar">
         <div class="container nav-wrapper">
             <div class="nav-left">
@@ -29,12 +36,16 @@
             <!-- ปุ่ม Hamburger (เก็บไว้ให้ script.js ใช้งาน — บนมือถือใช้ tab bar ด้านล่างแทน) -->
             <button class="hamburger" id="hamburgerMenu" aria-label="เมนู"><svg class="icon"><use href="#i-menu"/></svg></button>
             <div class="nav-right" id="navLinks">
-                <a href="#find">ค้นหาบริษัท (Find)</a>
-                <a href="add.html">เพิ่มข้อมูลบริษัท (Add)</a>
-                <a href="#more">ข้อมูลเพิ่มเติม (More info)</a>
-                <a href="#contact-section">ติดต่อคณะ (Contact)</a>
+                <a href="#find" class="nav-item" data-nav="find" title="ค้นหา"><span class="nav-ic mint"><svg class="icon"><use href="#i-search"/></svg></span><span class="nav-label">ค้นหา</span></a>
+                <a href="add.html" class="nav-item" data-nav="add" title="เพิ่มบริษัท"><span class="nav-ic pink"><svg class="icon"><use href="#i-plus"/></svg></span><span class="nav-label">เพิ่มบริษัท</span></a>
+                <a href="me.html" class="nav-item" data-nav="me" title="ที่บันทึกไว้"><span class="nav-ic sky"><svg class="icon"><use href="#i-heart"/></svg></span><span class="nav-label">ที่บันทึกไว้</span><span class="nav-badge" data-saved-badge></span></a>
+                <a href="#more" class="nav-item" data-nav="more" title="ข้อมูล"><span class="nav-ic butter"><svg class="icon"><use href="#i-info"/></svg></span><span class="nav-label">ข้อมูล</span></a>
+                <a href="#contact-section" class="nav-item" data-nav="contact" title="ติดต่อ"><span class="nav-ic mint"><svg class="icon"><use href="#i-mail"/></svg></span><span class="nav-label">ติดต่อ</span></a>
             </div>
-            <a href="admin.html" class="btn-admin-nav"><svg class="icon"><use href="#i-key"/></svg><span>Admin</span></a>
+            <div class="nav-actions">
+                <button type="button" class="icon-btn" data-open-settings aria-label="ตั้งค่า" title="ตั้งค่า"><svg class="icon"><use href="#i-settings"/></svg></button>
+                <a href="admin.html" class="btn-admin-nav icon-btn" aria-label="Admin" title="Admin"><svg class="icon"><use href="#i-key"/></svg><span class="visually-hidden">Admin</span></a>
+            </div>
         </div>
     </nav>
 
@@ -78,6 +89,34 @@
                 <span class="stat-label">รีวิวจากรุ่นพี่</span>
             </button>
         </section>
+
+        <div class="home-duo">
+            <section class="tab-card mint howto" aria-labelledby="howtoTitle">
+                <h2 class="tab-head" id="howtoTitle">วิธีใช้งาน</h2>
+                <ol class="howto-steps">
+                    <li>
+                        <span class="step-num mint">1</span>
+                        <div><b>ค้นหา</b><p>พิมพ์ชื่อ หรือกรองตามตำแหน่ง รถไฟฟ้า และสถานะรับสมัคร</p></div>
+                        <span class="icon-bubble mint"><svg class="icon"><use href="#i-search"/></svg></span>
+                    </li>
+                    <li>
+                        <span class="step-num pink">2</span>
+                        <div><b>อ่านรีวิว</b><p>ดูประสบการณ์ฝึกงานและการสัมภาษณ์จากรุ่นพี่</p></div>
+                        <span class="icon-bubble pink"><svg class="icon"><use href="#i-message"/></svg></span>
+                    </li>
+                    <li>
+                        <span class="step-num butter">3</span>
+                        <div><b>บันทึก &amp; สมัคร</b><p>กดหัวใจเก็บไว้ เทียบบริษัท แล้วลงวันปิดรับในปฏิทิน</p></div>
+                        <span class="icon-bubble butter"><svg class="icon"><use href="#i-heart"/></svg></span>
+                    </li>
+                </ol>
+            </section>
+
+            <section class="tab-card sky categories" aria-labelledby="catTitle">
+                <h2 class="tab-head" id="catTitle">หมวดตำแหน่งยอดนิยม</h2>
+                <div class="cat-grid" id="categoryTiles"></div>
+            </section>
+        </div>
 
         <section id="find" class="content-section">
             <div class="section-head">
@@ -183,33 +222,36 @@
                 <h2>รู้จักบริษัทดี ๆ? แชร์ให้เพื่อนหน่อย!</h2>
                 <p>ใช้เวลาไม่ถึง 1 นาที แอดมินจะตรวจสอบก่อนขึ้นเว็บ</p>
             </div>
-            <a href="add.html" class="btn-primary"><svg class="icon"><use href="#i-plus"/></svg>เพิ่มข้อมูลบริษัท</a>
+            <a href="add.html" class="btn-pill"><span>เพิ่มข้อมูลบริษัท</span><span class="pill-arrow"><svg class="icon"><use href="#i-arrow-right"/></svg></span></a>
         </section>
 
         <div class="info-grid">
-            <section id="more" class="content-section info-card">
-                <span class="info-icon"><svg class="icon"><use href="#i-info"/></svg></span>
-                <h2>ข้อมูลเพิ่มเติมเกี่ยวกับการฝึกงาน</h2>
-                <p>รายละเอียดเกณฑ์การผ่านวิชาฝึกงาน เอกสารที่ต้องใช้...</p>
+            <section id="more" class="tab-card butter info-card">
+                <h2 class="tab-head">ข้อมูลเพิ่มเติมเกี่ยวกับการฝึกงาน</h2>
+                <div class="tab-body">
+                    <span class="icon-bubble butter"><svg class="icon"><use href="#i-info"/></svg></span>
+                    <p>รายละเอียดเกณฑ์การผ่านวิชาฝึกงาน เอกสารที่ต้องใช้...</p>
+                </div>
             </section>
 
-            <section id="contact-section" class="content-section info-card">
-                <span class="info-icon"><svg class="icon"><use href="#i-mail"/></svg></span>
-                <h2>ช่องทางติดต่อคณะ</h2>
-                <p>ติดต่อเจ้าหน้าที่งานการศึกษา คณะ ICT มหิดล...</p>
+            <section id="contact-section" class="tab-card pink info-card">
+                <h2 class="tab-head">ช่องทางติดต่อคณะ</h2>
+                <div class="tab-body">
+                    <span class="icon-bubble pink"><svg class="icon"><use href="#i-mail"/></svg></span>
+                    <p>ติดต่อเจ้าหน้าที่งานการศึกษา คณะ ICT มหิดล...</p>
+                </div>
             </section>
         </div>
 
-        <footer class="site-footer">
-            <img src="assets/memo-head.webp" alt="" width="28" height="28">
-            <span>Internship Corporation for ICT · ทำโดยนักศึกษา ICT มหิดล</span>
-        </footer>
     </main>
+
+    <footer id="siteFooter" class="site-footer2"></footer>
 
     <!-- Bottom tab bar (มือถือ) -->
     <nav class="tabbar" aria-label="เมนูหลัก">
         <a href="#find" class="tab active" data-tab="find"><svg class="icon"><use href="#i-search"/></svg><span>ค้นหา</span></a>
         <a href="add.html" class="tab" data-tab="add"><svg class="icon"><use href="#i-plus"/></svg><span>เพิ่ม</span></a>
+        <a href="me.html" class="tab" data-tab="me"><svg class="icon"><use href="#i-heart"/></svg><span>ของฉัน</span></a>
         <a href="#more" class="tab" data-tab="more"><svg class="icon"><use href="#i-info"/></svg><span>ข้อมูล</span></a>
         <a href="#contact-section" class="tab" data-tab="contact-section"><svg class="icon"><use href="#i-mail"/></svg><span>ติดต่อ</span></a>
     </nav>

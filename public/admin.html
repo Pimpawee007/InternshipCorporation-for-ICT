@@ -7,6 +7,13 @@
     <meta name="robots" content="noindex">
     <title>Admin - Internship Corporation</title>
     <link rel="stylesheet" href="styles.css">
+    <script>
+        // ตั้งโหมดสีก่อนหน้าเว็บแสดง (กันจอกระพริบ) — รายละเอียดอยู่ใน common.js
+        try { var p = JSON.parse(localStorage.getItem('ict-prefs') || '{}'), t = p.theme || 'auto';
+              document.documentElement.dataset.theme = (t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches)) ? 'dark' : 'light';
+              if (p.fontSize === 'small') document.documentElement.style.fontSize = '15px';
+              if (p.fontSize === 'large') document.documentElement.style.fontSize = '18px'; } catch (e) {}
+    </script>
     <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
     <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
@@ -18,7 +25,7 @@
     <script src="common.js" defer></script>
     <script src="admin.js" defer></script>
 </head>
-<body class="admin-body">
+<body class="admin-body" data-page="admin">
 
     <div class="login-wrap" id="loginWrap">
         <div class="login-memo">
@@ -44,6 +51,7 @@
                     <span class="count-pill" id="adminCount"></span>
                 </div>
                 <div class="admin-actions">
+                    <button type="button" class="icon-btn" data-open-settings aria-label="ตั้งค่า" title="ตั้งค่า"><svg class="icon"><use href="#i-settings"/></svg></button>
                     <a href="index.html" class="btn-outline"><svg class="icon"><use href="#i-eye"/></svg>ดูหน้าเว็บ</a>
                     <button onclick="logout()" class="btn-logout"><svg class="icon"><use href="#i-logout"/></svg>ออกจากระบบ</button>
                 </div>
@@ -133,6 +141,7 @@
 
                 <label>ตำแหน่งงานที่เปิดรับ</label>
                 <div id="editPositions"></div>
+                <p class="field-hint dup-hint hidden" id="editPosHint"></p>
                 <label class="sub-label" for="editPos">เขียนเพิ่มเติม (ไม่บังคับ)</label>
                 <input type="text" id="editPos">
 

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#006C6C">
+    <title>ของฉัน - Internship Corporation for ICT</title>
+    <link rel="stylesheet" href="styles.css">
+    <script>
+        // ตั้งโหมดสีก่อนหน้าเว็บแสดง (กันจอกระพริบ) — รายละเอียดอยู่ใน common.js
+        try { var p = JSON.parse(localStorage.getItem('ict-prefs') || '{}'), t = p.theme || 'auto';
+              document.documentElement.dataset.theme = (t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches)) ? 'dark' : 'light';
+              if (p.fontSize === 'small') document.documentElement.style.fontSize = '15px';
+              if (p.fontSize === 'large') document.documentElement.style.fontSize = '18px'; } catch (e) {}
+    </script>
+    <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="transit-data.js" defer></script>
+    <script src="tag-data.js" defer></script>
+    <script src="common.js" defer></script>
+    <script src="me.js" defer></script>
+</head>
+<body data-page="me">
+    <nav class="topbar">
+        <div class="container nav-wrapper">
+            <div class="nav-left">
+                <a href="index.html" class="brand" aria-label="Internship ICT หน้าแรก">
+                    <img src="assets/memo-head.webp" alt="" width="36" height="36">
+                    <span>Internship <b>ICT</b></span>
+                </a>
+            </div>
+            <div class="nav-right">
+                <a href="index.html#find" class="nav-item" data-nav="find" title="ค้นหา"><span class="nav-ic mint"><svg class="icon"><use href="#i-search"/></svg></span><span class="nav-label">ค้นหา</span></a>
+                <a href="add.html" class="nav-item" data-nav="add" title="เพิ่มบริษัท"><span class="nav-ic pink"><svg class="icon"><use href="#i-plus"/></svg></span><span class="nav-label">เพิ่มบริษัท</span></a>
+                <a href="me.html" class="nav-item" data-nav="me" title="ที่บันทึกไว้"><span class="nav-ic sky"><svg class="icon"><use href="#i-heart"/></svg></span><span class="nav-label">ที่บันทึกไว้</span><span class="nav-badge" data-saved-badge></span></a>
+                <a href="index.html#more" class="nav-item" data-nav="more" title="ข้อมูล"><span class="nav-ic butter"><svg class="icon"><use href="#i-info"/></svg></span><span class="nav-label">ข้อมูล</span></a>
+                <a href="index.html#contact-section" class="nav-item" data-nav="contact" title="ติดต่อ"><span class="nav-ic mint"><svg class="icon"><use href="#i-mail"/></svg></span><span class="nav-label">ติดต่อ</span></a>
+            </div>
+            <div class="nav-actions">
+                <button type="button" class="icon-btn" data-open-settings aria-label="ตั้งค่า" title="ตั้งค่า"><svg class="icon"><use href="#i-settings"/></svg></button>
+                <a href="admin.html" class="btn-admin-nav icon-btn" aria-label="Admin" title="Admin"><svg class="icon"><use href="#i-key"/></svg><span class="visually-hidden">Admin</span></a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container me-page">
+        <section class="me-hero">
+            <div class="me-avatar"><img src="assets/character/happy.webp" alt="Memo กำลังดีใจ" width="560" height="518"></div>
+            <div class="me-hero-text">
+                <h1>พื้นที่ของฉัน</h1>
+                <p>บริษัทที่บันทึกไว้ ดูล่าสุด และรายการเปรียบเทียบ เก็บไว้ในเบราว์เซอร์นี้เท่านั้น ไม่ต้อง login</p>
+                <div class="me-counts">
+                    <span class="me-count"><span class="icon-bubble sm sky"><svg class="icon"><use href="#i-heart"/></svg></span><b id="countSaved">0</b> บันทึกไว้</span>
+                    <span class="me-count"><span class="icon-bubble sm mint"><svg class="icon"><use href="#i-history"/></svg></span><b id="countRecent">0</b> ดูล่าสุด</span>
+                    <span class="me-count"><span class="icon-bubble sm pink"><svg class="icon"><use href="#i-compare"/></svg></span><b id="countCompare">0</b> เปรียบเทียบ</span>
+                </div>
+            </div>
+            <button type="button" class="btn-pill secondary me-settings" data-open-settings><span>ตั้งค่า</span><span class="pill-arrow"><svg class="icon"><use href="#i-settings"/></svg></span></button>
+        </section>
+
+        <section class="tab-card sky me-section" aria-labelledby="savedTitle">
+            <h2 class="tab-head" id="savedTitle"><svg class="icon"><use href="#i-heart"/></svg>บริษัทที่บันทึกไว้</h2>
+            <div class="me-list" id="meSaved"><p class="review-loading">กำลังโหลด...</p></div>
+        </section>
+
+        <section class="tab-card pink me-section" aria-labelledby="compareTitle">
+            <h2 class="tab-head" id="compareTitle"><svg class="icon"><use href="#i-compare"/></svg>รายการเปรียบเทียบ</h2>
+            <div class="me-list" id="meCompare"></div>
+            <div class="me-actions">
+                <a href="index.html?compare=1" class="btn-pill" id="btnOpenCompare"><span>เปิดตารางเปรียบเทียบ</span><span class="pill-arrow"><svg class="icon"><use href="#i-arrow-right"/></svg></span></a>
+            </div>
+        </section>
+
+        <section class="tab-card mint me-section" aria-labelledby="recentTitle">
+            <h2 class="tab-head" id="recentTitle"><svg class="icon"><use href="#i-history"/></svg>ดูล่าสุด</h2>
+            <div class="me-list" id="meRecent"></div>
+            <div class="me-actions"><button type="button" class="btn-text" id="btnClearRecent">ล้างประวัติการดู</button></div>
+        </section>
+    </main>
+
+    <footer id="siteFooter" class="site-footer2"></footer>
+
+    <nav class="tabbar" aria-label="เมนูหลัก">
+        <a href="index.html#find" class="tab" data-tab="find"><svg class="icon"><use href="#i-search"/></svg><span>ค้นหา</span></a>
+        <a href="add.html" class="tab" data-tab="add"><svg class="icon"><use href="#i-plus"/></svg><span>เพิ่ม</span></a>
+        <a href="me.html" class="tab active" data-tab="me" aria-current="page"><svg class="icon"><use href="#i-heart"/></svg><span>ของฉัน</span></a>
+        <a href="index.html#more" class="tab" data-tab="more"><svg class="icon"><use href="#i-info"/></svg><span>ข้อมูล</span></a>
+        <a href="index.html#contact-section" class="tab" data-tab="contact-section"><svg class="icon"><use href="#i-mail"/></svg><span>ติดต่อ</span></a>
+    </nav>
+
+    <div id="memoToast" class="toast" role="status" aria-live="polite">
+        <img id="memoToastImg" src="assets/character/excited.webp" alt="" width="479" height="560">
+        <p id="memoToastText"></p>
+    </div>
+</body>
+</html>

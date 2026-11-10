@@ -21,6 +21,28 @@ function normalizeTags(tags) {
     return [...new Set((tags || []).map(t => LEGACY_POSITION_MAP[t] || t))];
 }
 
+// เดาตำแหน่งจากข้อความ "ตำแหน่งงานที่เปิดรับ" (pos) ด้วย keywords ใน tag-data.js
+// ใช้กับบริษัทเก่าที่ยังไม่ได้เลือก Tag ตำแหน่ง — ไม่ได้แก้ข้อมูลในฐานข้อมูล
+const escapeRegExp = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const POSITION_MATCHERS = POSITION_CATEGORIES.flatMap(c => c.items.map(i => ({
+    name: i.name,
+    patterns: (i.keywords || []).map(k => /[a-z0-9]/i.test(k)
+        ? new RegExp(`(?<![a-z0-9])${escapeRegExp(k)}(?![a-z0-9])`, 'i')
+        : new RegExp(escapeRegExp(k)))
+})));
+
+function inferPositions(text) {
+    if (!text) return [];
+    return POSITION_MATCHERS.filter(m => m.patterns.some(re => re.test(text))).map(m => m.name);
+}
+
+// Tag ของบริษัทสำหรับแสดงผล/กรอง: แปลงชื่อเก่า + เติมตำแหน่งที่เดาจาก pos (ถ้ายังไม่มี Tag ตำแหน่งเลย)
+function displayTags(c) {
+    const tags = normalizeTags(c.tags);
+    if (tags.some(t => POSITION_TAGS.includes(t))) return tags;
+    return [...new Set([...tags, ...inferPositions(c.pos)])];
+}
+
 // ตัวกรองตำแหน่ง: "Data Analyst" = ตำแหน่งเดียว, "cat:data" = ทุกตำแหน่งในหมวด
 function companyMatchesPositions(c, values) {
     const tags = c.tags || [];
@@ -65,6 +87,9 @@ function tagGroup(tag) {
     if (TRANSIT_TAGS.includes(tag)) return 'transit';
     return 'other';
 }
+
+// ไอคอนของแต่ละหมวดตำแหน่ง (ใช้ในหน้าแรก)
+const CATEGORY_ICON = { dev: 'code', data: 'database', design: 'palette', infra: 'server', security: 'shield', qa: 'check-check', business: 'briefcase', hardware: 'cpu' };
 
 const DIFFICULTY_LABEL = { easy: 'สัมภาษณ์ง่าย', medium: 'ปานกลาง', hard: 'ค่อนข้างยาก' };
 
@@ -119,6 +144,22 @@ const ICONS = {
     train: '<path d="M8 3.1V7a4 4 0 0 0 8 0V3.1"/><path d="m9 15-1-1"/><path d="m15 15 1-1"/><path d="M9 19c-2.8 0-5-2.2-5-5v-4a8 8 0 0 1 16 0v4c0 2.8-2.2 5-5 5Z"/><path d="m8 19-2 3"/><path d="m16 19 2 3"/>',
     flame: '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
     mic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/>',
+    code: '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>',
+    database: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/>',
+    palette: '<circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>',
+    server: '<rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/>',
+    shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+    'check-check': '<path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/>',
+    cpu: '<rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/>',
+    settings: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+    user: '<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>',
+    history: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
+    moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+    type: '<polyline points="4 7 4 4 20 4 20 7"/><line x1="9" x2="15" y1="20" y2="20"/><line x1="12" x2="12" y1="4" y2="20"/>',
+    pause: '<circle cx="12" cy="12" r="10"/><line x1="10" x2="10" y1="15" y2="9"/><line x1="14" x2="14" y1="15" y2="9"/>',
+    book: '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+    grid: '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
     trash: '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>'
 };
 
@@ -522,3 +563,250 @@ document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     document.querySelectorAll('.modal').forEach(m => { if (m.style.display === 'flex') closeModal(m.id); });
 });
+
+
+// ===========================================================================
+// รายการที่เก็บในเบราว์เซอร์ (ดูล่าสุด / เปรียบเทียบ)
+// ===========================================================================
+const RECENT_KEY = 'ict-recent-companies';
+const COMPARE_KEY = 'ict-compare-companies';
+
+function readList(key) {
+    try { const v = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(v) ? v : []; }
+    catch { return []; }
+}
+
+function writeList(key, list) {
+    try { localStorage.setItem(key, JSON.stringify(list)); } catch { /* ignore */ }
+}
+
+function addRecent(id) {
+    writeList(RECENT_KEY, [id, ...readList(RECENT_KEY).filter(x => x !== id)].slice(0, 10));
+}
+
+// ตัวเลขบนเมนู "ที่บันทึกไว้"
+function updateNavSavedBadge() {
+    const n = getSaved().size;
+    document.querySelectorAll('[data-saved-badge]').forEach(el => { el.textContent = n || ''; });
+}
+
+// ===========================================================================
+// การตั้งค่า (ขนาดตัวอักษร / โหมดสี / ลดการเคลื่อนไหว)
+// ===========================================================================
+const PREF_KEY = 'ict-prefs';
+const DEFAULT_PREFS = { fontSize: 'normal', theme: 'auto', reduceMotion: false };
+const darkQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+
+function getPrefs() {
+    try { return { ...DEFAULT_PREFS, ...JSON.parse(localStorage.getItem(PREF_KEY) || '{}') }; }
+    catch { return { ...DEFAULT_PREFS }; }
+}
+
+function applyPrefs(p = getPrefs()) {
+    const root = document.documentElement;
+    root.style.fontSize = { small: '15px', normal: '16px', large: '18px' }[p.fontSize] || '16px';
+    const dark = p.theme === 'dark' || (p.theme === 'auto' && darkQuery && darkQuery.matches);
+    root.dataset.theme = dark ? 'dark' : 'light';
+    root.classList.toggle('reduce-motion', Boolean(p.reduceMotion));
+}
+
+function setPref(key, value) {
+    const p = { ...getPrefs(), [key]: value };
+    try { localStorage.setItem(PREF_KEY, JSON.stringify(p)); } catch { /* ignore */ }
+    applyPrefs(p);
+    renderSettings();
+}
+
+applyPrefs();
+if (darkQuery && darkQuery.addEventListener) darkQuery.addEventListener('change', () => applyPrefs());
+
+// ---------------------------------------------------------------------------
+// แผงตั้งค่า (เปิดจากปุ่มที่มี data-open-settings ได้ทุกหน้า)
+// ---------------------------------------------------------------------------
+function segmentHTML(key, options, current) {
+    return `<div class="segmented" role="radiogroup">${options.map(([value, label, ic]) =>
+        `<button type="button" role="radio" aria-checked="${current === value}" class="${current === value ? 'is-on' : ''}" data-pref="${key}" data-value="${value}">${ic ? icon(ic) : ''}${label}</button>`).join('')}</div>`;
+}
+
+function renderSettings() {
+    const body = document.getElementById('settingsBody');
+    if (!body) return;
+    const p = getPrefs();
+    body.innerHTML = `
+        <div class="set-row">
+            <span class="icon-bubble butter">${icon('type')}</span>
+            <div class="set-text"><b>ขนาดตัวอักษร</b><span>ปรับให้อ่านสบายตา</span></div>
+            ${segmentHTML('fontSize', [['small', 'เล็ก'], ['normal', 'ปกติ'], ['large', 'ใหญ่']], p.fontSize)}
+        </div>
+        <div class="set-row">
+            <span class="icon-bubble sky">${icon('moon')}</span>
+            <div class="set-text"><b>โหมดสี</b><span>ตามเครื่อง = เปลี่ยนตามมือถือ/คอมของเรา</span></div>
+            ${segmentHTML('theme', [['light', 'สว่าง', 'sun'], ['dark', 'มืด', 'moon'], ['auto', 'ตามเครื่อง']], p.theme)}
+        </div>
+        <div class="set-row">
+            <span class="icon-bubble mint">${icon('pause')}</span>
+            <div class="set-text"><b>ลดการเคลื่อนไหว</b><span>ปิดแอนิเมชันทั้งหมด</span></div>
+            <label class="switch"><input type="checkbox" id="prefMotion" ${p.reduceMotion ? 'checked' : ''}><span></span><em class="visually-hidden">ลดการเคลื่อนไหว</em></label>
+        </div>
+        <button type="button" class="set-row as-button" id="btnReplayOnboarding">
+            <span class="icon-bubble pink">${icon('book')}</span>
+            <div class="set-text"><b>ดูวิธีใช้อีกครั้ง</b><span>เปิดหน้าแนะนำของ Memo</span></div>
+            ${icon('chev-right', 'set-chev')}
+        </button>
+        <button type="button" class="set-row as-button danger" id="btnClearLocal">
+            <span class="icon-bubble danger">${icon('trash')}</span>
+            <div class="set-text"><b>ล้างข้อมูลที่บันทึกไว้</b><span>หัวใจ, ดูล่าสุด และรายการเปรียบเทียบในเบราว์เซอร์นี้</span></div>
+            ${icon('chev-right', 'set-chev')}
+        </button>`;
+}
+
+function openSettings() {
+    renderSettings();
+    openModal('settingsSheet');
+}
+
+(function injectSettings() {
+    document.body.insertAdjacentHTML('beforeend', `
+        <div id="settingsSheet" class="modal drawer" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+            <div class="modal-content settings-content">
+                <button class="close-btn" type="button" data-close-settings aria-label="ปิด">${icon('x')}</button>
+                <h2 class="settings-title" id="settingsTitle"><span class="icon-bubble mint">${icon('settings')}</span>ตั้งค่า</h2>
+                <div id="settingsBody" class="settings-body"></div>
+            </div>
+        </div>`);
+
+    const sheet = document.getElementById('settingsSheet');
+    sheet.addEventListener('click', (e) => {
+        if (e.target.closest('[data-close-settings]')) return closeModal('settingsSheet');
+        const seg = e.target.closest('[data-pref]');
+        if (seg) return setPref(seg.dataset.pref, seg.dataset.value);
+        if (e.target.closest('#btnReplayOnboarding')) {
+            closeModal('settingsSheet');
+            return openOnboarding();
+        }
+        if (e.target.closest('#btnClearLocal')) {
+            if (!confirm('ล้างบริษัทที่บันทึกไว้ ดูล่าสุด และรายการเปรียบเทียบทั้งหมด?')) return;
+            [SAVED_KEY, RECENT_KEY, COMPARE_KEY].forEach(k => { try { localStorage.removeItem(k); } catch { /* ignore */ } });
+            showToast('ล้างข้อมูลแล้ว', 'happy');
+            setTimeout(() => location.reload(), 600);
+        }
+    });
+    sheet.addEventListener('change', (e) => {
+        if (e.target.id === 'prefMotion') setPref('reduceMotion', e.target.checked);
+    });
+
+    document.addEventListener('click', (e) => {
+        if (e.target.closest('[data-open-settings]')) { e.preventDefault(); openSettings(); }
+    });
+})();
+
+// ===========================================================================
+// หน้าแนะนำครั้งแรก (Onboarding)
+// ===========================================================================
+const ONBOARD_KEY = 'ict-onboarded';
+const ONBOARD_SLIDES = [
+    { img: 'hero.webp', title: 'สวัสดี! เราชื่อ Memo', text: 'Memo จะช่วยหาที่ฝึกงานให้ รวมบริษัทที่รุ่นพี่และเพื่อน ICT แชร์กันไว้', color: 'mint' },
+    { img: 'thinking.webp', title: 'ค้นหาได้หลายแบบ', text: 'กรองตามตำแหน่ง สถานีรถไฟฟ้า สถานะรับสมัคร หรือพิมพ์ค้นหาเลยก็ได้', color: 'sky' },
+    { img: 'thumbs-up.webp', title: 'บันทึก เปรียบเทียบ อ่านรีวิว', text: 'กดหัวใจเก็บไว้ เทียบ 2–3 บริษัท และอ่านประสบการณ์สัมภาษณ์จากรุ่นพี่', color: 'pink' }
+];
+
+function openOnboarding() {
+    let el = document.getElementById('onboarding');
+    if (!el) {
+        document.body.insertAdjacentHTML('beforeend', `
+            <div id="onboarding" class="onboarding" role="dialog" aria-modal="true" aria-label="แนะนำการใช้งาน">
+                <div class="ob-card">
+                    <button type="button" class="btn-text ob-skip" data-ob="skip">ข้าม</button>
+                    <div class="ob-track" tabindex="0">
+                        ${ONBOARD_SLIDES.map((s, i) => `
+                            <section class="ob-slide" aria-label="${i + 1} จาก ${ONBOARD_SLIDES.length}">
+                                <div class="ob-art ${s.color}"><img src="${MEMO}${s.img}" alt="Memo" width="300" height="400"></div>
+                                <h2>${s.title}</h2>
+                                <p>${s.text}</p>
+                            </section>`).join('')}
+                    </div>
+                    <div class="ob-foot">
+                        <div class="ob-dots">${ONBOARD_SLIDES.map((_, i) => `<i data-dot="${i}"></i>`).join('')}</div>
+                        <button type="button" class="btn-pill" data-ob="next"><span>ถัดไป</span><span class="pill-arrow">${icon('arrow-right')}</span></button>
+                    </div>
+                </div>
+            </div>`);
+        el = document.getElementById('onboarding');
+        const track = el.querySelector('.ob-track');
+        const current = () => Math.round(track.scrollLeft / track.clientWidth);
+        const go = (i) => track.scrollTo({ left: i * track.clientWidth, behavior: 'smooth' });
+        const sync = () => {
+            const i = current();
+            el.querySelectorAll('[data-dot]').forEach(d => d.classList.toggle('on', Number(d.dataset.dot) === i));
+            el.querySelector('[data-ob="next"] span').textContent = i === ONBOARD_SLIDES.length - 1 ? 'เริ่มเลย' : 'ถัดไป';
+        };
+        track.addEventListener('scroll', () => requestAnimationFrame(sync), { passive: true });
+        el.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-ob]');
+            if (!btn) return;
+            if (btn.dataset.ob === 'skip' || current() >= ONBOARD_SLIDES.length - 1) return closeOnboarding();
+            go(current() + 1);
+        });
+        el.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') go(Math.min(current() + 1, ONBOARD_SLIDES.length - 1));
+            if (e.key === 'ArrowLeft') go(Math.max(current() - 1, 0));
+            if (e.key === 'Escape') closeOnboarding();
+        });
+        el._sync = sync;
+    }
+    el.classList.add('show');
+    document.body.classList.add('modal-open');
+    el.querySelector('.ob-track').scrollLeft = 0;
+    el._sync();
+    el.querySelector('.ob-track').focus({ preventScroll: true });
+}
+
+function closeOnboarding() {
+    const el = document.getElementById('onboarding');
+    if (el) el.classList.remove('show');
+    document.body.classList.remove('modal-open');
+    try { localStorage.setItem(ONBOARD_KEY, '1'); } catch { /* ignore */ }
+}
+
+// ===========================================================================
+// Footer (ใส่ให้อัตโนมัติในทุกหน้าที่มี <footer id="siteFooter">)
+// ===========================================================================
+(function renderFooter() {
+    const f = document.getElementById('siteFooter');
+    if (!f) return;
+    const links = [
+        ['index.html#find', 'search', 'ค้นหาบริษัท', 'mint'],
+        ['add.html', 'plus', 'เพิ่มบริษัท', 'pink'],
+        ['me.html', 'heart', 'ของฉัน', 'sky'],
+        ['index.html#more', 'info', 'ข้อมูลเพิ่มเติม', 'butter'],
+        ['index.html#contact-section', 'mail', 'ติดต่อคณะ', 'mint'],
+        ['admin.html', 'key', 'Admin', 'pink']
+    ];
+    f.innerHTML = `
+        <div class="container footer-inner">
+            <div class="footer-brand">
+                <img src="assets/memo-head.webp" alt="" width="48" height="48">
+                <div><b>Internship <span>ICT</span></b><p>รวมที่ฝึกงานที่นักศึกษา ICT มหิดล ช่วยกันแชร์</p></div>
+            </div>
+            <nav class="footer-links" aria-label="ลิงก์ท้ายเว็บ">
+                ${links.map(([href, ic, label, c]) => `<a href="${href}"><span class="icon-bubble sm ${c}">${icon(ic)}</span>${label}</a>`).join('')}
+            </nav>
+        </div>
+        <p class="footer-note">ทำโดยนักศึกษา ICT มหิดล · มี Memo เป็นเพื่อนหาที่ฝึกงาน</p>`;
+})();
+
+// ===========================================================================
+// เริ่มทำงานทุกหน้า
+// ===========================================================================
+(function initShared() {
+    updateNavSavedBadge();
+    const page = document.body.dataset.page;
+    const navKey = page === 'home' ? 'find' : page;
+    document.querySelectorAll(`.nav-item[data-nav="${navKey}"]`).forEach(a => {
+        a.classList.add('is-current');
+        a.setAttribute('aria-current', 'page');
+    });
+    let onboarded = false;
+    try { onboarded = localStorage.getItem(ONBOARD_KEY) === '1'; } catch { onboarded = true; }
+    if (!onboarded && page && page !== 'admin') setTimeout(openOnboarding, 300);
+})();
