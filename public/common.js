@@ -792,7 +792,7 @@ function closeOnboarding() {
                 ${links.map(([href, ic, label, c]) => `<a href="${href}"><span class="icon-bubble sm ${c}">${icon(ic)}</span>${label}</a>`).join('')}
             </nav>
         </div>
-        <p class="footer-note">ทำโดยนักศึกษา ICT มหิดล · มี Memo เป็นเพื่อนหาที่ฝึกงาน</p>`;
+        <p class="footer-note">จัดทำโดย | 6887043 พีระพัชร ปัณณพงศ์ และ 6887039 พิมพ์ปวีณ์ เพชรเจริญ [นักศึกษา DST]<br>มี Memo เป็นเพื่อนหาที่ฝึกงาน<br>ขอบคุณข้อมูลสถานที่ฝึกงานจาก Job & Education Fair 2026</p>;`
 })();
 
 // ===========================================================================

@@ -2471,7 +2471,11 @@ body.has-compare .toast { bottom: calc(var(--tab-h) + 96px + env(safe-area-inset
     text-align: center;
 }
 .tab-card > .tab-head .icon { width: 18px; height: 18px; }
-.tab-body { display: flex; align-items: flex-start; gap: var(--sp-3); padding: var(--sp-4); }
+.tab-body { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: var(--sp-3); padding: var(--sp-4); }
+.tab-body > span.icon-bubble {grid-column: 1; grid-row: 1;}
+.tab-body > p:first-of-type {grid-column: 2; grid-row: 1; color: var(--muted); margin: 0; white-space: nowrap;}
+.tab-body > p:not(:first-of-type) {grid-column: 2; color: var(--muted); margin: 0;}
+.tab-body > p:nth-of-type(2) {margin-top: var(--sp-1);}
 .tab-body p { color: var(--muted); }
 
 /* info cards now use tab-card */
