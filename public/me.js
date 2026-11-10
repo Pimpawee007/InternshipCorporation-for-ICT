@@ -96,7 +96,7 @@ document.querySelector('.me-page').addEventListener('click', (e) => {
     try {
         const res = await fetch(`${API_URL}/companies`);
         if (!res.ok) throw new Error('HTTP ' + res.status);
-        companies = (await res.json()).map(c => ({ ...c, tags: normalizeTags(c.tags) }));
+        companies = (await res.json()).map(c => ({ ...c, tags: displayTags(c) }));
         render();
     } catch (err) {
         ['meSaved', 'meCompare', 'meRecent'].forEach(id => {

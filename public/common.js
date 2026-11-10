@@ -21,6 +21,28 @@ function normalizeTags(tags) {
     return [...new Set((tags || []).map(t => LEGACY_POSITION_MAP[t] || t))];
 }
 
+// เดาตำแหน่งจากข้อความ "ตำแหน่งงานที่เปิดรับ" (pos) ด้วย keywords ใน tag-data.js
+// ใช้กับบริษัทเก่าที่ยังไม่ได้เลือก Tag ตำแหน่ง — ไม่ได้แก้ข้อมูลในฐานข้อมูล
+const escapeRegExp = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const POSITION_MATCHERS = POSITION_CATEGORIES.flatMap(c => c.items.map(i => ({
+    name: i.name,
+    patterns: (i.keywords || []).map(k => /[a-z0-9]/i.test(k)
+        ? new RegExp(`(?<![a-z0-9])${escapeRegExp(k)}(?![a-z0-9])`, 'i')
+        : new RegExp(escapeRegExp(k)))
+})));
+
+function inferPositions(text) {
+    if (!text) return [];
+    return POSITION_MATCHERS.filter(m => m.patterns.some(re => re.test(text))).map(m => m.name);
+}
+
+// Tag ของบริษัทสำหรับแสดงผล/กรอง: แปลงชื่อเก่า + เติมตำแหน่งที่เดาจาก pos (ถ้ายังไม่มี Tag ตำแหน่งเลย)
+function displayTags(c) {
+    const tags = normalizeTags(c.tags);
+    if (tags.some(t => POSITION_TAGS.includes(t))) return tags;
+    return [...new Set([...tags, ...inferPositions(c.pos)])];
+}
+
 // ตัวกรองตำแหน่ง: "Data Analyst" = ตำแหน่งเดียว, "cat:data" = ทุกตำแหน่งในหมวด
 function companyMatchesPositions(c, values) {
     const tags = c.tags || [];

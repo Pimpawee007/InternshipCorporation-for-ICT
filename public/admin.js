@@ -340,7 +340,12 @@ function openEditModal(id) {
     document.getElementById('editContact').value = data.contact || '';
     document.getElementById('editTags').value = (data.tags || []).filter(t => !TRANSIT_TAGS.includes(t) && !POSITION_TAGS.includes(t)).join(', ');
     editStationPicker.set(data.stations || []);
-    editPositionPicker.set((data.tags || []).filter(t => POSITION_TAGS.includes(t)));
+    const chosen = (data.tags || []).filter(t => POSITION_TAGS.includes(t));
+    const guessed = chosen.length ? [] : inferPositions(data.pos);
+    editPositionPicker.set(chosen.length ? chosen : guessed);
+    const hint = document.getElementById('editPosHint');
+    hint.classList.toggle('hidden', !guessed.length);
+    hint.textContent = guessed.length ? 'Memo เลือกตำแหน่งให้จากข้อความด้านล่างแล้ว ตรวจดูก่อนกดบันทึกนะ' : '';
 
     openModal('editModal');
 }

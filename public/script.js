@@ -25,7 +25,7 @@ async function fetchCompanies() {
     try {
         const response = await fetch(`${API_URL}/companies`);
         if (!response.ok) throw new Error('HTTP ' + response.status);
-        companyData = (await response.json()).map(c => ({ ...c, tags: normalizeTags(c.tags) }));
+        companyData = (await response.json()).map(c => ({ ...c, tags: displayTags(c) }));
         applyView();
         updateStats();
         renderCategoryTiles();
