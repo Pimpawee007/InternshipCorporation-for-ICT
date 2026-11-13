@@ -11,7 +11,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(express.json({ limit: '100kb' }));
+app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // 🔗 เชื่อมต่อไปยัง MongoDB Atlas (ตั้ง MONGO_URI ใน Environment ของ Render ได้)
@@ -387,6 +387,32 @@ app.post('/api/companies/:id/approve', requireAdmin, async (req, res) => {
         if (!updated) return res.status(404).json({ success: false, message: 'ไม่พบบริษัทนี้' });
         res.json({ success: true });
     } catch (error) {
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+});
+
+// นำเข้าหลายบริษัทพร้อมกัน (จากไฟล์ CSV ในหน้าแอดมิน) — ชื่อซ้ำจะถูกข้าม
+app.post('/api/admin/import', requireAdmin, async (req, res) => {
+    try {
+        const rows = Array.isArray((req.body || {}).companies) ? req.body.companies.slice(0, 500) : [];
+        const status = req.body.status === 'approved' ? 'approved' : 'pending';
+        const existing = (await Company.find()).map(plain);
+        const seen = new Set(existing.map(c => normalizeName(c.name)));
+        const added = [];
+        const skipped = [];
+        let n = 0;
+        for (const row of rows) {
+            const data = companyFields(row || {});
+            if (!data.name) { skipped.push({ name: '', reason: 'ไม่มีชื่อบริษัท' }); continue; }
+            const key = normalizeName(data.name);
+            if (seen.has(key)) { skipped.push({ name: data.name, reason: 'มีบริษัทนี้อยู่แล้ว' }); continue; }
+            seen.add(key);
+            await new Company({ ...data, id: 'c' + Date.now() + String(n++).padStart(3, '0'), status, createdAt: new Date() }).save();
+            added.push(data.name);
+        }
+        res.json({ success: true, added: added.length, skipped });
+    } catch (error) {
+        console.error(error);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });

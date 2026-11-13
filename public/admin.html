@@ -74,10 +74,13 @@
 
             <!-- บริษัททั้งหมด -->
             <div class="admin-pane hidden" id="pane-companies">
-                <label class="search-field admin-search">
-                    <svg class="icon"><use href="#i-search"/></svg>
-                    <input type="text" id="adminSearch" placeholder="ค้นหาชื่อบริษัท...">
-                </label>
+                <div class="admin-toolbar">
+                    <label class="search-field admin-search">
+                        <svg class="icon"><use href="#i-search"/></svg>
+                        <input type="text" id="adminSearch" placeholder="ค้นหาชื่อบริษัท...">
+                    </label>
+                    <button type="button" class="btn-outline" id="btnOpenImport"><svg class="icon"><use href="#i-file"/></svg>นำเข้าจากไฟล์ CSV</button>
+                </div>
                 <div class="table-responsive">
                     <table>
                         <thead>
@@ -103,6 +106,36 @@
             <!-- แจ้งข้อมูลผิด -->
             <div class="admin-pane hidden" id="pane-reports">
                 <div id="reportList" class="admin-cards"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Modal -->
+    <div id="importModal" class="modal">
+        <div class="modal-content import-content">
+            <button class="close-btn" type="button" onclick="closeModal('importModal')" aria-label="ปิด"><svg class="icon"><use href="#i-x"/></svg></button>
+            <h3 class="edit-title"><svg class="icon"><use href="#i-file"/></svg>นำเข้าบริษัทจากไฟล์ CSV</h3>
+            <ol class="import-steps">
+                <li>ดาวน์โหลด <a href="#" id="btnTemplate">แบบฟอร์ม CSV</a> แล้วกรอกใน Excel หรือ Google Sheets (บันทึกเป็น CSV UTF-8)</li>
+                <li>เลือกไฟล์ ตรวจตัวอย่างด้านล่าง แล้วกดนำเข้า</li>
+                <li>ชื่อที่มีในเว็บอยู่แล้วจะถูกข้ามให้อัตโนมัติ</li>
+            </ol>
+            <label class="import-drop">
+                <input type="file" id="importFile" accept=".csv,text/csv">
+                <span class="icon-bubble sky"><svg class="icon"><use href="#i-file"/></svg></span>
+                <span id="importFileLabel">กดเพื่อเลือกไฟล์ .csv</span>
+            </label>
+            <div id="importPreview" class="import-preview hidden"></div>
+            <div class="import-status hidden" id="importStatusBox">
+                <span class="label">นำเข้าเป็น</span>
+                <div class="chip-group">
+                    <label class="chip"><input type="radio" name="importStatus" value="pending" checked><span>รออนุมัติ (ตรวจทีละบริษัทก่อน)</span></label>
+                    <label class="chip"><input type="radio" name="importStatus" value="approved"><span>อนุมัติเลย (ขึ้นเว็บทันที)</span></label>
+                </div>
+            </div>
+            <div class="edit-actions">
+                <button type="button" class="btn-save" id="btnDoImport" disabled>นำเข้า</button>
+                <button type="button" class="btn-cancel" onclick="closeModal('importModal')">ยกเลิก</button>
             </div>
         </div>
     </div>
