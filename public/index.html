@@ -288,6 +288,7 @@
                         <label class="chip"><input type="checkbox" data-group="status" value="open"><span>เปิดรับอยู่</span></label>
                         <label class="chip"><input type="checkbox" data-group="status" value="closing"><span>ใกล้ปิดรับ</span></label>
                         <label class="chip"><input type="checkbox" data-group="status" value="upcoming"><span>ยังไม่เปิดรับ</span></label>
+                        <label class="chip"><input type="checkbox" data-group="status" value="unknown"><span>ยังไม่ประกาศรอบ</span></label>
                     </div>
                 </div>
                 <div class="filter-group">
@@ -354,6 +355,15 @@
                     <div class="detail-row"><span class="detail-icon"><svg class="icon"><use href="#i-calendar"/></svg></span><p><strong>ระยะเวลาการรับสมัคร</strong> <span id="modalTime" class="break-text"></span></p></div>
                     <div class="detail-row"><span class="detail-icon"><svg class="icon"><use href="#i-phone"/></svg></span><p><strong>ช่องทางติดต่อ</strong> <a id="modalContactLink" href="#" target="_blank" rel="noopener" class="break-text link-wrap"></a><span id="modalContactText" class="break-text"></span></p></div>
                     <div class="modal-tags" id="modalTags"></div>
+                    <div class="missing-box hidden" id="modalMissing">
+                        <img src="assets/character/thinking.webp" alt="" width="420" height="560" loading="lazy">
+                        <div>
+                            <p class="missing-title">Memo ยังหาข้อมูลส่วนนี้ไม่เจอ</p>
+                            <p class="missing-list" id="modalMissingText"></p>
+                            <p class="missing-sub">ข้อมูลอาจยังไม่ประกาศ หรือบริษัทยังไม่เปิดรับในตอนนี้ ลองติดต่อบริษัทโดยตรงนะ</p>
+                            <button type="button" class="action-chip" id="btnHelpInfo"><svg class="icon"><use href="#i-plus"/></svg><span>รู้ข้อมูล? ช่วยเพิ่มให้หน่อย</span></button>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- รีวิวจากรุ่นพี่ -->

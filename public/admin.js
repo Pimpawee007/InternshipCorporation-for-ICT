@@ -412,11 +412,12 @@ if (getToken()) {
 // ===========================================================================
 // นำเข้าบริษัทจากไฟล์ CSV
 // คอลัมน์: name, sector, location, description, contact, positions, position_note,
-//          workmode, tags, pay, start_date, end_date, stations, source, check_note
+//          workmode, tags, pay, start_date, end_date, time_note, stations, source, check_note
+// time_note = ข้อความสั้นๆ เมื่อไม่มีวันที่ เช่น "ปัจจุบันยังไม่เปิดรับ" หรือ "เปิดรับตามรอบ ดูประกาศที่เว็บ"
 // ค่าที่มีหลายอันให้คั่นด้วย ; เช่น positions = "Frontend Developer;Data Analyst"
 // stations = "BTS สายสุขุมวิท:อโศก;MRT สายสีน้ำเงิน:สุขุมวิท"
 // ===========================================================================
-const IMPORT_COLUMNS = ['name', 'sector', 'location', 'description', 'contact', 'positions', 'position_note', 'workmode', 'tags', 'pay', 'start_date', 'end_date', 'stations', 'source', 'check_note'];
+const IMPORT_COLUMNS = ['name', 'sector', 'location', 'description', 'contact', 'positions', 'position_note', 'workmode', 'tags', 'pay', 'start_date', 'end_date', 'time_note', 'stations', 'source', 'check_note'];
 let importRows = [];
 
 function parseCSV(text) {
@@ -486,7 +487,7 @@ function rowToCompany(obj) {
             pay: pay || '-',
             timeStart: start,
             timeEnd: end,
-            time: start && end ? `${start} ถึง ${end}` : (end ? `ถึง ${end}` : '-'),
+            time: start && end ? `${start} ถึง ${end}` : (end ? `ถึง ${end}` : ((obj.time_note || '').trim() || '-')),
             tags: [...new Set(tags)],
             stations: stationValues
         },
@@ -541,7 +542,7 @@ document.getElementById('btnOpenImport').addEventListener('click', () => {
 
 document.getElementById('btnTemplate').addEventListener('click', (e) => {
     e.preventDefault();
-    const example = ['ตัวอย่าง บริษัท เอบีซี จำกัด', 'เอกชน', 'ถนนสุขุมวิท เขตวัฒนา กรุงเทพฯ', 'บริษัทพัฒนาซอฟต์แวร์', 'https://example.com/careers', 'Frontend Developer;Data Analyst', 'ผู้ช่วยนักพัฒนาเว็บ', 'Hybrid', 'ภาคกลาง', '10,000 บาท/เดือน', '2027-01-05', '2027-02-28', 'BTS สายสุขุมวิท:อโศก', '', 'แถวตัวอย่าง ลบทิ้งก่อนนำเข้า'];
+    const example = ['ตัวอย่าง บริษัท เอบีซี จำกัด', 'เอกชน', 'ถนนสุขุมวิท เขตวัฒนา กรุงเทพฯ', 'บริษัทพัฒนาซอฟต์แวร์', 'https://example.com/careers', 'Frontend Developer;Data Analyst', 'ผู้ช่วยนักพัฒนาเว็บ', 'Hybrid', 'ภาคกลาง', '10,000 บาท/เดือน', '2027-01-05', '2027-02-28', '', 'BTS สายสุขุมวิท:อโศก', '', 'แถวตัวอย่าง ลบทิ้งก่อนนำเข้า'];
     const esc = (v) => /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
     const csv = '﻿' + [IMPORT_COLUMNS, example].map(r => r.map(esc).join(',')).join('\r\n');
     const a = document.createElement('a');
