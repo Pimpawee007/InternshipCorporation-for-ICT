@@ -116,6 +116,13 @@ function renderAll() {
     setBadge('badgePending', pendingCompanies.length + pendingReviews.length);
     setBadge('badgeReports', reportsCache.length);
 
+    const approveAllBtn = document.getElementById('btnApproveAll');
+    approveAllBtn.classList.toggle('hidden', !pendingCompanies.length);
+    approveAllBtn.lastChild.textContent = `อนุมัติทั้งหมด (${pendingCompanies.length})`;
+    const delBtn = document.getElementById('btnDeletePending');
+    delBtn.classList.toggle('hidden', !pendingCompanies.length);
+    delBtn.lastChild.textContent = `ลบที่รออนุมัติทั้งหมด (${pendingCompanies.length})`;
+
     document.getElementById('pendingCompanies').innerHTML = pendingCompanies.length
         ? pendingCompanies.map(pendingCompanyHTML).join('')
         : emptyState('happy', 'ไม่มีบริษัทค้างตรวจแล้ว เก่งมาก!');
@@ -407,3 +414,225 @@ document.getElementById('editForm').addEventListener('submit', async (e) => {
 if (getToken()) {
     showPanel();
 }
+
+
+// ===========================================================================
+// นำเข้าบริษัทจากไฟล์ CSV
+// คอลัมน์: name, sector, location, description, contact, positions, position_note,
+//          workmode, tags, pay, start_date, end_date, time_note, stations, source, check_note
+// time_note = ข้อความสั้นๆ เมื่อไม่มีวันที่ เช่น "ปัจจุบันยังไม่เปิดรับ" หรือ "เปิดรับตามรอบ ดูประกาศที่เว็บ"
+// ค่าที่มีหลายอันให้คั่นด้วย ; เช่น positions = "Frontend Developer;Data Analyst"
+// stations = "BTS สายสุขุมวิท:อโศก;MRT สายสีน้ำเงิน:สุขุมวิท"
+// ===========================================================================
+const IMPORT_COLUMNS = ['name', 'sector', 'location', 'description', 'contact', 'positions', 'position_note', 'workmode', 'tags', 'pay', 'start_date', 'end_date', 'time_note', 'stations', 'source', 'check_note'];
+let importRows = [];
+
+function parseCSV(text) {
+    const rows = [];
+    let row = [], field = '', inQuotes = false;
+    text = text.replace(/^﻿/, '');
+    for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (inQuotes) {
+            if (ch === '"') {
+                if (text[i + 1] === '"') { field += '"'; i++; } else inQuotes = false;
+            } else field += ch;
+        } else if (ch === '"') inQuotes = true;
+        else if (ch === ',') { row.push(field); field = ''; }
+        else if (ch === '\n' || ch === '\r') {
+            if (ch === '\r' && text[i + 1] === '\n') i++;
+            row.push(field); rows.push(row); row = []; field = '';
+        } else field += ch;
+    }
+    if (field !== '' || row.length) { row.push(field); rows.push(row); }
+    return rows.filter(r => r.some(c => String(c).trim() !== ''));
+}
+
+const splitList = (v) => String(v || '').split(/[;\n]/).map(x => x.trim()).filter(Boolean);
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+// แปลงชื่อสถานี "BTS สายสุขุมวิท:อโศก" → "bts-sukhumvit:อโศก"
+function toStationValue(text) {
+    const [lineText, station] = String(text).split(':').map(x => (x || '').trim());
+    if (!station) return null;
+    const line = LINE_BY_ID[lineText] || TRANSIT_LINES.find(l => l.name === lineText || l.short === lineText);
+    return line && line.stations.includes(station) ? `${line.id}:${station}` : null;
+}
+
+function rowToCompany(obj) {
+    const warnings = [];
+    const sector = ['ภาครัฐ', 'เอกชน', 'รัฐวิสาหกิจ'].includes(obj.sector) ? obj.sector : 'เอกชน';
+    if (obj.sector && sector !== obj.sector) warnings.push(`ประเภท "${obj.sector}" ไม่รู้จัก ใช้ "เอกชน" แทน`);
+
+    const positions = normalizeTags(splitList(obj.positions));
+    const unknownPos = positions.filter(p => !POSITION_TAGS.includes(p));
+    if (unknownPos.length) warnings.push(`ตำแหน่งที่ไม่มีในรายการ: ${unknownPos.join(', ')} (ย้ายไปไว้ในข้อความแทน)`);
+
+    const stationValues = [];
+    splitList(obj.stations).forEach(st => {
+        const v = toStationValue(st);
+        if (v) stationValues.push(v); else warnings.push(`ไม่รู้จักสถานี "${st}"`);
+    });
+
+    const start = ISO_DATE.test(obj.start_date || '') ? obj.start_date : '';
+    const end = ISO_DATE.test(obj.end_date || '') ? obj.end_date : '';
+    if ((obj.start_date && !start) || (obj.end_date && !end)) warnings.push('วันที่ต้องเป็นรูปแบบ ปปปป-ดด-วว เช่น 2027-01-31');
+
+    const pay = (obj.pay || '').trim();
+    const tags = [sector, ...positions.filter(p => POSITION_TAGS.includes(p)), ...splitList(obj.workmode), ...splitList(obj.tags)];
+    if (pay && !['-', 'ไม่มี', 'ไม่มีค่าตอบแทน'].includes(pay)) tags.push('มีค่าตอบแทน');
+
+    const posText = [obj.position_note, unknownPos.join(', ')].filter(Boolean).join(', ');
+    return {
+        company: {
+            name: (obj.name || '').trim(),
+            sector,
+            loc: (obj.location || '').trim(),
+            desc: (obj.description || '').trim(),
+            contact: (obj.contact || '').trim(),
+            pos: posText,
+            pay: pay || '-',
+            timeStart: start,
+            timeEnd: end,
+            time: start && end ? `${start} ถึง ${end}` : (end ? `ถึง ${end}` : ((obj.time_note || '').trim() || '-')),
+            tags: [...new Set(tags)],
+            stations: stationValues
+        },
+        warnings
+    };
+}
+
+function renderImportPreview(fileName) {
+    const box = document.getElementById('importPreview');
+    const existing = new Set(companiesCache.map(c => normalizeName(c.name)));
+    const seen = new Set();
+    let ready = 0;
+    const items = importRows.map(r => {
+        const key = normalizeName(r.company.name);
+        let state = 'ok';
+        if (!r.company.name) state = 'empty';
+        else if (existing.has(key) || seen.has(key)) state = 'dup';
+        seen.add(key);
+        if (state === 'ok') ready++;
+        return { ...r, state };
+    });
+
+    const badge = { ok: '<span class="status-badge status-open">พร้อมนำเข้า</span>', dup: '<span class="status-badge status-closed">มีอยู่แล้ว · ข้าม</span>', empty: '<span class="status-badge status-closing">ไม่มีชื่อ · ข้าม</span>' };
+    box.innerHTML = `
+        <p class="import-summary"><b>${escapeHTML(fileName)}</b> · ทั้งหมด ${items.length} แถว · พร้อมนำเข้า <b>${ready}</b> · ข้าม ${items.length - ready}</p>
+        <div class="import-list">
+            ${items.map(r => `
+                <div class="import-row ${r.state}">
+                    <div class="import-row-head"><b>${escapeHTML(r.company.name || '(ไม่มีชื่อ)')}</b>${badge[r.state]}</div>
+                    <p>${escapeHTML(r.company.sector)} · ${escapeHTML(r.company.loc || 'ไม่มีที่อยู่')} · ตำแหน่ง ${r.company.tags.filter(t => POSITION_TAGS.includes(t)).length} · สถานี ${r.company.stations.length}</p>
+                    ${r.warnings.length ? `<p class="import-warn">${r.warnings.map(escapeHTML).join('<br>')}</p>` : ''}
+                </div>`).join('')}
+        </div>`;
+    box.classList.remove('hidden');
+    document.getElementById('importStatusBox').classList.toggle('hidden', !ready);
+    const btn = document.getElementById('btnDoImport');
+    btn.disabled = !ready;
+    btn.textContent = ready ? `นำเข้า ${ready} บริษัท` : 'ไม่มีแถวที่นำเข้าได้';
+}
+
+document.getElementById('btnOpenImport').addEventListener('click', () => {
+    importRows = [];
+    document.getElementById('importFile').value = '';
+    document.getElementById('importFileLabel').textContent = 'กดเพื่อเลือกไฟล์ .csv';
+    document.getElementById('importPreview').classList.add('hidden');
+    document.getElementById('importStatusBox').classList.add('hidden');
+    const btn = document.getElementById('btnDoImport');
+    btn.disabled = true;
+    btn.textContent = 'นำเข้า';
+    openModal('importModal');
+});
+
+document.getElementById('btnTemplate').addEventListener('click', (e) => {
+    e.preventDefault();
+    const example = ['ตัวอย่าง บริษัท เอบีซี จำกัด', 'เอกชน', 'ถนนสุขุมวิท เขตวัฒนา กรุงเทพฯ', 'บริษัทพัฒนาซอฟต์แวร์', 'https://example.com/careers', 'Frontend Developer;Data Analyst', 'ผู้ช่วยนักพัฒนาเว็บ', 'Hybrid', 'ภาคกลาง', '10,000 บาท/เดือน', '2027-01-05', '2027-02-28', '', 'BTS สายสุขุมวิท:อโศก', '', 'แถวตัวอย่าง ลบทิ้งก่อนนำเข้า'];
+    const esc = (v) => /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+    const csv = '﻿' + [IMPORT_COLUMNS, example].map(r => r.map(esc).join(',')).join('\r\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = 'import-template.csv';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+
+document.getElementById('importFile').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    document.getElementById('importFileLabel').textContent = file.name;
+    const rows = parseCSV(await file.text());
+    if (rows.length < 2) return showToast('ไฟล์ไม่มีข้อมูล หรือไม่ใช่ CSV', 'error');
+    const header = rows[0].map(h => h.trim().toLowerCase());
+    if (!header.includes('name')) return showToast('ไม่เจอคอลัมน์ name ลองใช้แบบฟอร์มของเว็บนะ', 'error');
+    importRows = rows.slice(1).map(r => rowToCompany(Object.fromEntries(header.map((h, i) => [h, (r[i] || '').trim()]))));
+    renderImportPreview(file.name);
+});
+
+document.getElementById('btnDoImport').addEventListener('click', async () => {
+    const btn = document.getElementById('btnDoImport');
+    const status = (document.querySelector('input[name="importStatus"]:checked') || {}).value || 'pending';
+    if (status === 'approved' && !confirm('บริษัททั้งหมดจะขึ้นเว็บทันที แน่ใจไหม?')) return;
+    btn.disabled = true;
+    btn.textContent = 'กำลังนำเข้า...';
+    try {
+        const res = await authFetch(`${API_URL}/admin/import`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status, companies: importRows.map(r => r.company).filter(c => c.name) })
+        });
+        const result = await res.json();
+        if (!result.success) throw new Error(result.message || 'import failed');
+        closeModal('importModal');
+        showToast(`นำเข้าแล้ว ${result.added} บริษัท${result.skipped.length ? ` · ข้าม ${result.skipped.length}` : ''}`, 'happy');
+        await loadData();
+        setTab(status === 'pending' ? 'pending' : 'companies');
+    } catch (err) {
+        if (err.message !== 'unauthorized') showToast('นำเข้าไม่สำเร็จ ลองใหม่อีกครั้งนะ', 'error');
+        btn.disabled = false;
+        btn.textContent = 'ลองอีกครั้ง';
+    }
+});
+
+
+// ลบบริษัทที่รออนุมัติทั้งหมด (บริษัทที่อนุมัติแล้วไม่โดนลบ)
+document.getElementById('btnDeletePending').addEventListener('click', async () => {
+    const count = companiesCache.filter(c => c.status === 'pending').length;
+    if (!count) return;
+    if (!confirm(`ลบบริษัทที่ "รออนุมัติ" ทั้งหมด ${count} บริษัท?\n(รวมบริษัทที่นักศึกษาส่งเข้ามาด้วย และกู้คืนไม่ได้)`)) return;
+    const btn = document.getElementById('btnDeletePending');
+    btn.disabled = true;
+    try {
+        const res = await authFetch(`${API_URL}/admin/companies/delete-pending`, { method: 'POST' });
+        const result = await res.json();
+        if (!result.success) throw new Error(result.message || 'delete failed');
+        showToast(`ลบแล้ว ${result.deleted} บริษัท`, 'happy');
+        await loadData();
+    } catch (err) {
+        if (err.message !== 'unauthorized') showToast('ลบไม่สำเร็จ ลองใหม่อีกครั้งนะ', 'error');
+    } finally {
+        btn.disabled = false;
+    }
+});
+
+// อนุมัติบริษัทที่รออนุมัติทั้งหมด (ขึ้นเว็บทันที)
+document.getElementById('btnApproveAll').addEventListener('click', async () => {
+    const count = companiesCache.filter(c => c.status === 'pending').length;
+    if (!count) return;
+    if (!confirm(`อนุมัติบริษัทที่รออนุมัติทั้งหมด ${count} บริษัท?\nทุกบริษัทจะขึ้นเว็บทันที (รวมที่นักศึกษาส่งเข้ามาด้วย)`)) return;
+    const btn = document.getElementById('btnApproveAll');
+    btn.disabled = true;
+    try {
+        const res = await authFetch(`${API_URL}/admin/companies/approve-all`, { method: 'POST' });
+        const result = await res.json();
+        if (!result.success) throw new Error(result.message || 'approve failed');
+        showToast(`อนุมัติแล้ว ${result.approved} บริษัท`, 'happy');
+        await loadData();
+    } catch (err) {
+        if (err.message !== 'unauthorized') showToast('อนุมัติไม่สำเร็จ ลองใหม่อีกครั้งนะ', 'error');
+    } finally {
+        btn.disabled = false;
+    }
+});

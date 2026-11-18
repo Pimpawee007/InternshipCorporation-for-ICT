@@ -125,7 +125,7 @@ function cardHTML(company) {
                 ${logoHTML(company)}
                 <div class="card-title">
                     <h4 class="company-name">${escapeHTML(company.name)}</h4>
-                    <p class="location">${icon('pin')}<span>${escapeHTML(company.loc)}</span></p>
+                    <p class="location">${icon('pin')}${hasText(company.loc) ? `<span>${escapeHTML(company.loc)}</span>` : '<span class="loc-missing">ยังไม่ระบุที่อยู่</span>'}</p>
                     ${stationLineHTML(company)}
                 </div>
                 <button type="button" class="btn-heart ${isSaved ? 'is-saved' : ''}" data-save="${id}" aria-pressed="${isSaved}" aria-label="บันทึก ${escapeHTML(company.name)}">${icon('heart')}</button>
@@ -410,13 +410,27 @@ function openDetailsModal(companyId) {
     calBtn.classList.toggle('hidden', !cal || deadlineStatus(data).key === 'closed');
     if (cal) calBtn.href = cal;
 
-    document.getElementById('modalDesc').textContent = data.desc || '-';
-    document.getElementById('modalLoc').textContent = data.loc || '-';
-    document.getElementById('modalPay').textContent = data.pay || '-';
+    
+    // ช่องไหนยังไม่มีข้อมูล → ป้ายสีเทาบอกผู้ใช้ตรงๆ แทนขีด "-"
+    const setField = (id, value, emptyText) => {
+        const el = document.getElementById(id);
+        if (hasText(value)) el.textContent = value; else el.innerHTML = missingHTML(emptyText);
+    };
+    setField('modalDesc', data.desc, 'ยังไม่มีคำอธิบาย');
+    setField('modalLoc', data.loc, 'ยังไม่ระบุที่อยู่');
+    setField('modalPay', data.pay, 'ไม่ระบุ');
     const positions = (data.tags || []).filter(t => POSITION_TAGS.includes(t));
     document.getElementById('modalPositions').innerHTML = positions.map(positionPillHTML).join('');
-    document.getElementById('modalPos').textContent = data.pos || (positions.length ? '' : '-');
-    document.getElementById('modalTime').textContent = data.time || '-';
+    if (positions.length || hasText(data.pos)) document.getElementById('modalPos').textContent = hasText(data.pos) ? data.pos : '';
+    else document.getElementById('modalPos').innerHTML = missingHTML('ยังไม่ระบุตำแหน่ง · สอบถามบริษัทโดยตรง');
+    if (hasText(data.time)) document.getElementById('modalTime').textContent = data.time;
+    else document.getElementById('modalTime').innerHTML = missingHTML('ยังไม่ประกาศรอบรับสมัคร');
+
+    // กล่องบอกว่า Memo ยังหาข้อมูลส่วนไหนไม่เจอ + ปุ่มช่วยเพิ่มข้อมูล
+    const missing = missingFields(data);
+    const missBox = document.getElementById('modalMissing');
+    missBox.classList.toggle('hidden', !missing.length);
+    document.getElementById('modalMissingText').textContent = missing.join(' · ');
 
     const extraTags = (data.tags || []).filter(t => t !== data.sector && !TRANSIT_TAGS.includes(t) && !POSITION_TAGS.includes(t));
     const stations = data.stations || [];
@@ -424,11 +438,15 @@ function openDetailsModal(companyId) {
     document.getElementById('modalStations').innerHTML = stations.map(stationPillHTML).join('');
     document.getElementById('modalTags').innerHTML = extraTags.map(t => `<span class="mini-tag">${escapeHTML(t)}</span>`).join('');
 
-    const contactText = data.contact || '-';
+    const contactText = hasText(data.contact) ? data.contact : '';
     const linkEl = document.getElementById('modalContactLink');
     const textEl = document.getElementById('modalContactText');
 
-    if (contactText.startsWith('http') || contactText.startsWith('www.')) {
+    if (!contactText) {
+        textEl.innerHTML = missingHTML('ยังไม่มีช่องทางสมัคร');
+        textEl.style.display = 'inline';
+        linkEl.style.display = 'none';
+    } else if (contactText.startsWith('http') || contactText.startsWith('www.')) {
         let url = contactText.startsWith('www.') ? 'http://' + contactText : contactText;
         linkEl.href = url;
         linkEl.textContent = contactText;
@@ -587,6 +605,16 @@ document.getElementById('btnReport').addEventListener('click', () => {
     document.getElementById('reportText').focus();
 });
 document.getElementById('btnCancelReport').addEventListener('click', resetReportForm);
+
+// ปุ่ม "รู้ข้อมูล? ช่วยเพิ่มให้หน่อย" → เปิดฟอร์มแจ้งแอดมิน พร้อมเติมหัวข้อที่ยังขาด
+document.getElementById('btnHelpInfo').addEventListener('click', () => {
+    const missing = document.getElementById('modalMissingText').textContent;
+    document.getElementById('btnReport').click();
+    const box = document.getElementById('reportText');
+    if (!box.value) box.value = `ข้อมูลเพิ่มเติม (${missing}):\n`;
+    box.setSelectionRange(box.value.length, box.value.length);
+    document.querySelector('#companyModal .report-box').scrollIntoView({ behavior: 'smooth', block: 'center' });
+});
 
 document.getElementById('reportForm').addEventListener('submit', async (e) => {
     e.preventDefault();

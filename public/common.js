@@ -276,7 +276,11 @@ function companyDates(c) {
 
 function deadlineStatus(c) {
     const { start, end } = companyDates(c);
-    if (!end) return { key: 'unknown', label: '', end: null };
+    if (!end) {
+        // ไม่มีวันที่: ถ้ามีข้อความสั้นๆ (เช่น "ปัจจุบันยังไม่เปิดรับ") ให้โชว์ข้อความนั้น ถ้าไม่มีเลยบอกว่ายังไม่ประกาศ
+        const note = hasText(c.time) ? String(c.time).trim() : '';
+        return { key: 'unknown', label: note ? (note.length > 26 ? note.slice(0, 25) + '…' : note) : 'ยังไม่ประกาศรับสมัคร', end: null };
+    }
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const days = Math.round((end - today) / 86400000);
     if (days < 0) return { key: 'closed', label: 'ปิดรับแล้ว', end };
@@ -310,8 +314,32 @@ function calendarURL(c) {
 
 function statusBadgeHTML(c) {
     const st = deadlineStatus(c);
-    if (st.key === 'unknown') return '';
-    return `<span class="status-badge status-${st.key}">${icon('clock')}${escapeHTML(st.label)}</span>`;
+    const ic = st.key === 'unknown' ? 'info' : 'clock';
+    const cls = st.key === 'unknown' && hasText(c.time) ? 'note' : st.key;
+    return `<span class="status-badge status-${cls}" title="${escapeHTML(hasText(c.time) ? c.time : st.label)}">${icon(ic)}${escapeHTML(st.label)}</span>`;
+}
+
+// ---------------------------------------------------------------------------
+// ข้อมูลที่ยังหาไม่เจอ: แสดงเป็นป้ายสีเทา และบอกผู้ใช้ว่าส่วนไหนยังไม่มี
+// ---------------------------------------------------------------------------
+function hasText(v) {
+    const s = String(v == null ? '' : v).trim();
+    return s !== '' && s !== '-' && s !== '–';
+}
+
+function missingHTML(text) {
+    return `<span class="missing-info">${escapeHTML(text)}</span>`;
+}
+
+// คืนรายการหัวข้อที่บริษัทนี้ยังไม่มีข้อมูล
+function missingFields(c) {
+    const out = [];
+    const hasPos = (c.tags || []).some(t => typeof POSITION_TAGS !== 'undefined' && POSITION_TAGS.includes(t)) || hasText(c.pos);
+    if (!hasPos) out.push('ตำแหน่งที่เปิดรับ');
+    if (!companyDates(c).end && !hasText(c.time)) out.push('รอบรับสมัคร');
+    if (!hasText(c.loc)) out.push('ที่อยู่');
+    if (!hasText(c.contact)) out.push('ช่องทางสมัคร');
+    return out;
 }
 
 // ---------------------------------------------------------------------------
