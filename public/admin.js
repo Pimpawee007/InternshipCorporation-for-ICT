@@ -116,6 +116,10 @@ function renderAll() {
     setBadge('badgePending', pendingCompanies.length + pendingReviews.length);
     setBadge('badgeReports', reportsCache.length);
 
+    const delBtn = document.getElementById('btnDeletePending');
+    delBtn.classList.toggle('hidden', !pendingCompanies.length);
+    delBtn.lastChild.textContent = `ลบที่รออนุมัติทั้งหมด (${pendingCompanies.length})`;
+
     document.getElementById('pendingCompanies').innerHTML = pendingCompanies.length
         ? pendingCompanies.map(pendingCompanyHTML).join('')
         : emptyState('happy', 'ไม่มีบริษัทค้างตรวจแล้ว เก่งมาก!');
@@ -586,5 +590,26 @@ document.getElementById('btnDoImport').addEventListener('click', async () => {
         if (err.message !== 'unauthorized') showToast('นำเข้าไม่สำเร็จ ลองใหม่อีกครั้งนะ', 'error');
         btn.disabled = false;
         btn.textContent = 'ลองอีกครั้ง';
+    }
+});
+
+
+// ลบบริษัทที่รออนุมัติทั้งหมด (บริษัทที่อนุมัติแล้วไม่โดนลบ)
+document.getElementById('btnDeletePending').addEventListener('click', async () => {
+    const count = companiesCache.filter(c => c.status === 'pending').length;
+    if (!count) return;
+    if (!confirm(`ลบบริษัทที่ "รออนุมัติ" ทั้งหมด ${count} บริษัท?\n(รวมบริษัทที่นักศึกษาส่งเข้ามาด้วย และกู้คืนไม่ได้)`)) return;
+    const btn = document.getElementById('btnDeletePending');
+    btn.disabled = true;
+    try {
+        const res = await authFetch(`${API_URL}/admin/companies/delete-pending`, { method: 'POST' });
+        const result = await res.json();
+        if (!result.success) throw new Error(result.message || 'delete failed');
+        showToast(`ลบแล้ว ${result.deleted} บริษัท`, 'happy');
+        await loadData();
+    } catch (err) {
+        if (err.message !== 'unauthorized') showToast('ลบไม่สำเร็จ ลองใหม่อีกครั้งนะ', 'error');
+    } finally {
+        btn.disabled = false;
     }
 });

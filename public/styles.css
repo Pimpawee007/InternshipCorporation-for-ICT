@@ -3036,3 +3036,12 @@ html.reduce-motion { scroll-behavior: auto; }
 :root[data-theme="dark"] .missing-box { background: #22251A; }
 :root[data-theme="dark"] .status-note { background: #173A37; color: #8FD9CF; }
 .location .loc-missing { color: var(--muted); font-style: italic; opacity: .8; }
+
+/* v9 — ลบที่รออนุมัติทั้งหมด */
+.pane-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); flex-wrap: wrap; }
+.btn-danger-outline { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: var(--r-pill); border: 1.5px solid #E7A1A1; background: transparent; color: #B23A3A; font: inherit; font-weight: 600; font-size: .88rem; cursor: pointer; }
+.btn-danger-outline:hover { background: #FDECEC; }
+.btn-danger-outline:disabled { opacity: .5; cursor: wait; }
+.btn-danger-outline .icon { width: 16px; height: 16px; }
+:root[data-theme="dark"] .btn-danger-outline { color: #F4A3A3; border-color: #7A3B3B; }
+:root[data-theme="dark"] .btn-danger-outline:hover { background: #3A2121; }
