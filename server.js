@@ -417,6 +417,18 @@ app.post('/api/admin/import', requireAdmin, async (req, res) => {
     }
 });
 
+// อนุมัติบริษัทที่ "รออนุมัติ" ทั้งหมดในครั้งเดียว
+app.post('/api/admin/companies/approve-all', requireAdmin, async (req, res) => {
+    try {
+        const pending = (await Company.find({ status: 'pending' })).map(plain);
+        for (const c of pending) await Company.findOneAndUpdate({ id: c.id }, { status: 'approved' });
+        res.json({ success: true, approved: pending.length });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+});
+
 // ลบบริษัทที่ "รออนุมัติ" ทั้งหมดในครั้งเดียว (เช่น ล้างข้อมูล CSV เก่าที่ยังไม่ได้อนุมัติ)
 app.post('/api/admin/companies/delete-pending', requireAdmin, async (req, res) => {
     try {

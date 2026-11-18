@@ -116,6 +116,9 @@ function renderAll() {
     setBadge('badgePending', pendingCompanies.length + pendingReviews.length);
     setBadge('badgeReports', reportsCache.length);
 
+    const approveAllBtn = document.getElementById('btnApproveAll');
+    approveAllBtn.classList.toggle('hidden', !pendingCompanies.length);
+    approveAllBtn.lastChild.textContent = `อนุมัติทั้งหมด (${pendingCompanies.length})`;
     const delBtn = document.getElementById('btnDeletePending');
     delBtn.classList.toggle('hidden', !pendingCompanies.length);
     delBtn.lastChild.textContent = `ลบที่รออนุมัติทั้งหมด (${pendingCompanies.length})`;
@@ -609,6 +612,26 @@ document.getElementById('btnDeletePending').addEventListener('click', async () =
         await loadData();
     } catch (err) {
         if (err.message !== 'unauthorized') showToast('ลบไม่สำเร็จ ลองใหม่อีกครั้งนะ', 'error');
+    } finally {
+        btn.disabled = false;
+    }
+});
+
+// อนุมัติบริษัทที่รออนุมัติทั้งหมด (ขึ้นเว็บทันที)
+document.getElementById('btnApproveAll').addEventListener('click', async () => {
+    const count = companiesCache.filter(c => c.status === 'pending').length;
+    if (!count) return;
+    if (!confirm(`อนุมัติบริษัทที่รออนุมัติทั้งหมด ${count} บริษัท?\nทุกบริษัทจะขึ้นเว็บทันที (รวมที่นักศึกษาส่งเข้ามาด้วย)`)) return;
+    const btn = document.getElementById('btnApproveAll');
+    btn.disabled = true;
+    try {
+        const res = await authFetch(`${API_URL}/admin/companies/approve-all`, { method: 'POST' });
+        const result = await res.json();
+        if (!result.success) throw new Error(result.message || 'approve failed');
+        showToast(`อนุมัติแล้ว ${result.approved} บริษัท`, 'happy');
+        await loadData();
+    } catch (err) {
+        if (err.message !== 'unauthorized') showToast('อนุมัติไม่สำเร็จ ลองใหม่อีกครั้งนะ', 'error');
     } finally {
         btn.disabled = false;
     }

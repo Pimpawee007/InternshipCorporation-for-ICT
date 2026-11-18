@@ -68,7 +68,10 @@
             <div class="admin-pane" id="pane-pending">
                 <div class="pane-head">
                     <h3 class="pane-title">บริษัทที่ส่งเข้ามาใหม่</h3>
-                    <button type="button" class="btn-danger-outline hidden" id="btnDeletePending"><svg class="icon"><use href="#i-trash"/></svg>ลบที่รออนุมัติทั้งหมด</button>
+                    <div class="pane-actions">
+                        <button type="button" class="btn-approve-all hidden" id="btnApproveAll"><svg class="icon"><use href="#i-check-check"/></svg>อนุมัติทั้งหมด</button>
+                        <button type="button" class="btn-danger-outline hidden" id="btnDeletePending"><svg class="icon"><use href="#i-trash"/></svg>ลบที่รออนุมัติทั้งหมด</button>
+                    </div>
                 </div>
                 <div id="pendingCompanies" class="admin-cards"></div>
                 <h3 class="pane-title">รีวิวที่รอตรวจ</h3>

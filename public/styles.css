@@ -3045,3 +3045,10 @@ html.reduce-motion { scroll-behavior: auto; }
 .btn-danger-outline .icon { width: 16px; height: 16px; }
 :root[data-theme="dark"] .btn-danger-outline { color: #F4A3A3; border-color: #7A3B3B; }
 :root[data-theme="dark"] .btn-danger-outline:hover { background: #3A2121; }
+
+/* v10 — อนุมัติทั้งหมด */
+.pane-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.btn-approve-all { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: var(--r-pill); border: none; background: var(--teal); color: #fff; font: inherit; font-weight: 600; font-size: .88rem; cursor: pointer; }
+.btn-approve-all:hover { filter: brightness(1.08); }
+.btn-approve-all:disabled { opacity: .5; cursor: wait; }
+.btn-approve-all .icon { width: 16px; height: 16px; }
