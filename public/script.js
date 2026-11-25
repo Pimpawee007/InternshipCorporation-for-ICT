@@ -1,4 +1,4 @@
-// script.js — หน้าแรก (ค้นหา กรอง เปรียบเทียบ ดูรายละเอียด และเขียนรีวิว)
+// script.js — หน้าแรก (ค้นหา กรอง เปรียบเทียบ ดูรายละเอียด แจ้งข้อมูลผิด และเขียนรีวิว)
 // ต้องโหลด transit-data.js, tag-data.js และ common.js ก่อนไฟล์นี้
 
 let allCompanies = [];
@@ -585,6 +585,23 @@ function openCompanyModal(id) {
     document.getElementById('reviewForm').classList.add('hidden');
     document.getElementById('reportForm').classList.add('hidden');
 
+    // เติมตัวเลือก Section ในฟอร์มแจ้งข้อมูลผิด (แสดงเมื่อมีมากกว่า 1 Section, เป็นแบบไม่บังคับ)
+    const repSecGroup = document.getElementById('reportSectionGroup');
+    const repSecSelect = document.getElementById('reportSectionSelect');
+    if (repSecGroup && repSecSelect) {
+        if (sections.length > 1) {
+            repSecGroup.classList.remove('hidden');
+            repSecSelect.innerHTML = `<option value="">-- ไม่ระบุ / ข้อมูลภาพรวมบริษัท --</option>` +
+                sections.map((s, idx) => {
+                    const label = `Section ${idx + 1}: ${s.sourceLabel || s.pos || s.loc || 'ข้อมูลชุดที่ ' + (idx + 1)}`;
+                    return `<option value="${escapeHTML(label)}">${escapeHTML(label)}</option>`;
+                }).join('');
+        } else {
+            repSecGroup.classList.add('hidden');
+            repSecSelect.innerHTML = '';
+        }
+    }
+
     openModal('companyModal');
     loadCompanyReviews(c.id);
 }
@@ -633,10 +650,9 @@ document.getElementById('modalShareBtn').addEventListener('click', async () => {
 // กดปุ่ม "รู้ข้อมูล? ช่วยเพิ่มให้หน่อย" ในกล่องข้อมูลขาด
 document.getElementById('modalDetailsContainer').addEventListener('click', (e) => {
     if (e.target.closest('#btnHelpInfo')) {
-        closeModal('companyModal');
-        document.getElementById('btnReport').click();
-        openModal('companyModal');
-        document.getElementById('reportForm').classList.remove('hidden');
+        const repForm = document.getElementById('reportForm');
+        repForm.classList.remove('hidden');
+        repForm.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         document.getElementById('reportText').focus();
     }
 });
@@ -760,10 +776,12 @@ document.getElementById('reviewForm').addEventListener('submit', async (e) => {
 });
 
 // ---------------------------------------------------------------------------
-// Report Incorrect Info
+// Report Incorrect Info (รองรับการระบุ Section แบบไม่บังคับ)
 // ---------------------------------------------------------------------------
 document.getElementById('btnReport').addEventListener('click', () => {
-    document.getElementById('reportForm').classList.toggle('hidden');
+    const form = document.getElementById('reportForm');
+    form.classList.toggle('hidden');
+    if (!form.classList.contains('hidden')) form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 });
 
 document.getElementById('btnCancelReport').addEventListener('click', () => {
@@ -776,13 +794,15 @@ document.getElementById('reportForm').addEventListener('submit', async (e) => {
     const message = document.getElementById('reportText').value.trim();
     if (message.length < 5) return showToast('ช่วยพิมพ์รายละเอียดเพิ่มอีกนิดนะ', 'error');
 
+    const sectionLabel = document.getElementById('reportSectionSelect')?.value || '';
+
     const btn = document.getElementById('btnSubmitReport');
     btn.disabled = true;
     try {
         const res = await fetch(`${API_URL}/companies/${encodeURIComponent(activeCompany.id)}/report`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message })
+            body: JSON.stringify({ message, sectionLabel })
         });
         const data = await res.json();
         if (data.success) {

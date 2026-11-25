@@ -440,8 +440,12 @@
                 <div class="report-box">
                     <button type="button" class="btn-text muted" id="btnReport"><svg class="icon"><use href="#i-flag"/></svg>แจ้งข้อมูลผิด / ไม่อัปเดต</button>
                     <form id="reportForm" class="report-form hidden">
+                        <div id="reportSectionGroup" class="form-group hidden">
+                            <label for="reportSectionSelect" class="label">ข้อมูลส่วนไหนที่ต้องการแก้ไข? <span class="opt">(ไม่บังคับ)</span></label>
+                            <select id="reportSectionSelect"></select>
+                        </div>
                         <label for="reportText" class="label">ข้อมูลตรงไหนผิด หรือควรแก้เป็นอะไร?</label>
-                        <textarea id="reportText" rows="3" maxlength="1000" placeholder="เช่น เบอร์โทรเปลี่ยนแล้ว / ปีนี้ไม่รับนักศึกษาฝึกงาน" required></textarea>
+                        <textarea id="reportText" rows="3" maxlength="1000" placeholder="เช่น เบอร์โทรเปลี่ยนแล้ว / ปิดรับสมัครแล้ว" required></textarea>
                         <div class="form-actions">
                             <button type="button" class="btn-filter-cancel" id="btnCancelReport">ยกเลิก</button>
                             <button type="submit" class="btn-primary" id="btnSubmitReport"><svg class="icon"><use href="#i-send"/></svg>ส่งให้แอดมิน</button>

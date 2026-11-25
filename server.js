@@ -1,494 +1,498 @@
+// server.js — Backend ของ Internship ICT (Express + MongoDB Atlas)
+require('dotenv').config();
 const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
 const path = require('path');
 const crypto = require('crypto');
-const cors = require('cors');
-const mongoose = require('mongoose');
-const TRANSIT_LINES = require('./public/transit-data.js');
-const { POSITION_CATEGORIES, LEGACY_POSITION_MAP } = require('./public/tag-data.js');
-const POSITION_NAMES = POSITION_CATEGORIES.flatMap(c => c.items.map(i => i.name));
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const MONGO_URI = process.env.MONGODB_URI;
+const ADMIN_USER = process.env.ADMIN_USER || 'admin';
+const ADMIN_PASS = process.env.ADMIN_PASS || '1234';
+const TOKEN_TTL_MS = 8 * 60 * 60 * 1000; // 8 ชั่วโมง
 
+if (!MONGO_URI) {
+    console.error('❌ กรุณาตั้งค่า MONGODB_URI ในไฟล์ .env หรือ Environment Variables');
+    process.exit(1);
+}
+
+app.set('trust proxy', 1);
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '50kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 🔗 เชื่อมต่อไปยัง MongoDB Atlas (ตั้ง MONGO_URI ใน Environment ของ Render ได้)
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://pimpawee49_db_user:wDSUhF5vHeFfA9FH@internshipproject1.c0djffi.mongodb.net/internship_db?retryWrites=true&w=majority';
+// ---------------------------------------------------------------------------
+// Rate Limiters
+// ---------------------------------------------------------------------------
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: 'ลองเข้าสู่ระบบบ่อยเกินไป รอ 15 นาทีแล้วลองใหม่นะ' }
+});
 
+const submitLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 15,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: 'ส่งข้อมูลบ่อยเกินไป รอสักครู่แล้วลองใหม่นะ' }
+});
+
+const reportLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: 'ส่งแจ้งเตือนบ่อยเกินไป รอสักครู่แล้วลองใหม่นะ' }
+});
+
+// ---------------------------------------------------------------------------
+// MongoDB Connection & Schemas
+// ---------------------------------------------------------------------------
 mongoose.connect(MONGO_URI)
-    .then(() => console.log('✅ Connected to MongoDB Atlas successfully!'))
-    .catch((err) => console.error('❌ MongoDB connection error:', err));
+    .then(() => console.log('✅ เชื่อมต่อ MongoDB Atlas สำเร็จ'))
+    .catch(err => {
+        console.error('❌ เชื่อมต่อ MongoDB ไม่สำเร็จ:', err);
+        process.exit(1);
+    });
 
-// ---------------------------------------------------------------------------
-// Models
-// หมายเหตุ: บริษัทเก่าที่ไม่มี field "status" ถือว่า "approved" (เว็บเดิมใช้ฐานข้อมูลเดียวกัน)
-// ---------------------------------------------------------------------------
-const sectionSchema = new mongoose.Schema({
-    id: String,
-    sourceLabel: String, // เช่น "รอบสหกิจศึกษา", "Job Fair 2026"
-    loc: String,
-    desc: String,
-    pay: String,
-    pos: String,
-    time: String,
-    timeStart: String,
-    timeEnd: String,
-    contact: String,
-    tags: [String],
-    stations: [String],
-    approvedAt: Date
+const SectionSchema = new mongoose.Schema({
+    id: { type: String, required: true },
+    sourceLabel: { type: String, default: '' },
+    loc: { type: String, default: '' },
+    desc: { type: String, default: '' },
+    pay: { type: String, default: '' },
+    pos: { type: String, default: '' },
+    time: { type: String, default: '-' },
+    timeStart: { type: String, default: '' },
+    timeEnd: { type: String, default: '' },
+    contact: { type: String, default: '' },
+    tags: { type: [String], default: [] },
+    stations: { type: [String], default: [] },
+    approvedAt: { type: Date, default: Date.now }
 }, { _id: false });
 
-const companySchema = new mongoose.Schema({
-    id: String,
-    name: String,
-    loc: String,
-    sector: String,
-    desc: String,
-    pay: String,
-    pos: String,
-    time: String,
-    timeStart: String,
-    timeEnd: String,
-    contact: String,
-    tags: [String],
-    stations: [String],  // สถานีรถไฟฟ้าใกล้บริษัท เช่น "bts-sukhumvit:อโศก"
-    sections: [sectionSchema], // เก็บข้อมูลแยกตามรอบ/แหล่งที่มาเมื่อมีการรวมข้อมูล
-    mergeTargetId: String,     // ถ้าเป็นการส่งข้อมูลเพื่อรวมเข้าบริษัทเดิม จะเก็บ id ของบริษัทปลายทางไว้ตอน status === 'pending'
-    status: String,      // 'approved' | 'pending'
-    createdAt: Date
+const CompanySchema = new mongoose.Schema({
+    id: { type: String, required: true, unique: true },
+    status: { type: String, enum: ['approved', 'pending'], default: 'pending' },
+    name: { type: String, required: true },
+    sector: { type: String, enum: ['เอกชน', 'ภาครัฐ', 'รัฐวิสาหกิจ'], default: 'เอกชน' },
+    sourceLabel: { type: String, default: '' },
+    loc: { type: String, default: '' },
+    desc: { type: String, default: '' },
+    pay: { type: String, default: '' },
+    pos: { type: String, default: '' },
+    time: { type: String, default: '-' },
+    timeStart: { type: String, default: '' },
+    timeEnd: { type: String, default: '' },
+    contact: { type: String, default: '' },
+    tags: { type: [String], default: [] },
+    stations: { type: [String], default: [] },
+    sections: { type: [SectionSchema], default: [] },
+    ratingAvg: { type: Number, default: 0 },
+    reviewCount: { type: Number, default: 0 },
+    createdAt: { type: Date, default: Date.now }
 });
-const Company = mongoose.model('Company', companySchema);
 
-const reviewSchema = new mongoose.Schema({
-    id: String,
-    companyId: String,
-    rating: Number,      // 1-5
-    role: String,
-    workMode: String,
-    pay: String,
-    recommend: Boolean,
-    text: String,
-    year: String,               // ปีที่ฝึก (พ.ศ.) เช่น "2568"
-    interviewQuestions: String, // ประสบการณ์สัมภาษณ์
-    hasTest: String,            // 'yes' | 'no' | ''
-    needPortfolio: String,      // 'yes' | 'no' | ''
-    difficulty: String,         // 'easy' | 'medium' | 'hard' | ''
-    status: String,      // 'approved' | 'pending'
-    createdAt: Date
+const ReviewSchema = new mongoose.Schema({
+    id: { type: String, required: true, unique: true },
+    companyId: { type: String, required: true, index: true },
+    companyName: { type: String, default: '' },
+    status: { type: String, enum: ['approved', 'pending'], default: 'pending' },
+    rating: { type: Number, min: 1, max: 5, required: true },
+    year: { type: String, default: '' },
+    role: { type: String, default: '' },
+    pay: { type: String, default: '' },
+    workMode: { type: String, default: '' },
+    recommend: { type: Boolean, default: true },
+    difficulty: { type: String, default: '' },
+    hasTest: { type: String, default: '' },
+    needPortfolio: { type: String, default: '' },
+    interviewQuestions: { type: String, default: '' },
+    text: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now }
 });
-const Review = mongoose.model('Review', reviewSchema);
 
-const reportSchema = new mongoose.Schema({
-    id: String,
-    companyId: String,
-    companyName: String,
-    message: String,
-    createdAt: Date
+const ReportSchema = new mongoose.Schema({
+    id: { type: String, required: true, unique: true },
+    companyId: { type: String, required: true },
+    companyName: { type: String, default: '' },
+    sectionLabel: { type: String, default: '' },
+    message: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now }
 });
-const Report = mongoose.model('Report', reportSchema);
 
-// นับว่า Tag ไหนถูกกดค้นหาบ่อย (ใช้ทำปุ่ม "ยอดนิยม" หน้าแรก)
-const tagStatSchema = new mongoose.Schema({ tag: String, count: Number });
-const TagStat = mongoose.model('TagStat', tagStatSchema);
+const TagStatSchema = new mongoose.Schema({
+    tag: { type: String, required: true, unique: true },
+    count: { type: Number, default: 1 },
+    updatedAt: { type: Date, default: Date.now }
+});
 
-// ---------------------------------------------------------------------------
-// Admin auth (token แบบมีลายเซ็น — แก้ไข/ลบ/อนุมัติ ต้อง login เท่านั้น)
-// ---------------------------------------------------------------------------
-const admins = [
-    { username: 'CodeLyxn', password: 'mhiyoklnwza888' },
-    { username: 'Peerapat_pun', password: 'gyoza888' },
-];
-
-// แนะนำให้ตั้ง ADMIN_SECRET ใน Environment ของ Render (ถ้าไม่ตั้ง จะสร้างจาก MONGO_URI)
-const TOKEN_SECRET = process.env.ADMIN_SECRET || crypto.createHash('sha256').update('ict-admin:' + MONGO_URI).digest('hex');
-const TOKEN_TTL_MS = 12 * 60 * 60 * 1000; // 12 ชั่วโมง
-
-function sign(data) {
-    return crypto.createHmac('sha256', TOKEN_SECRET).update(data).digest('base64url');
-}
-
-function createToken(username) {
-    const payload = Buffer.from(JSON.stringify({ u: username, exp: Date.now() + TOKEN_TTL_MS })).toString('base64url');
-    return payload + '.' + sign(payload);
-}
-
-function verifyToken(token) {
-    if (!token || typeof token !== 'string' || !token.includes('.')) return null;
-    const [payload, sig] = token.split('.');
-    const expected = sign(payload);
-    const a = Buffer.from(sig || '');
-    const b = Buffer.from(expected);
-    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
-    try {
-        const data = JSON.parse(Buffer.from(payload, 'base64url').toString());
-        if (!data.exp || data.exp < Date.now()) return null;
-        return data;
-    } catch {
-        return null;
-    }
-}
-
-function requireAdmin(req, res, next) {
-    const header = req.headers.authorization || '';
-    const token = header.startsWith('Bearer ') ? header.slice(7) : '';
-    const data = verifyToken(token);
-    if (!data) return res.status(401).json({ success: false, message: 'กรุณาเข้าสู่ระบบใหม่' });
-    req.admin = data.u;
-    next();
-}
+const Company = mongoose.model('Company', CompanySchema);
+const Review = mongoose.model('Review', ReviewSchema);
+const Report = mongoose.model('Report', ReportSchema);
+const TagStat = mongoose.model('TagStat', TagStatSchema);
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-const SECTORS = ['ภาครัฐ', 'เอกชน', 'รัฐวิสาหกิจ'];
-
-// ต้องตรงกับรายการใน public/common.js
-const TRACKABLE_TAGS = [
-    ...POSITION_NAMES,
-    'Onsite', 'Hybrid', 'Remote',
-    'มีค่าตอบแทน', 'ภาคกลาง', 'ต่างจังหวัด', 'ต่างประเทศ', 'รับฝึกมากกว่า 2 เดือน',
-    ...TRANSIT_LINES.map(l => l.name)
-];
-
-const LINE_NAMES = TRANSIT_LINES.map(l => l.name);
-const VALID_STATIONS = new Set(TRANSIT_LINES.flatMap(l => l.stations.map(st => `${l.id}:${st}`)));
-const LINE_BY_ID = Object.fromEntries(TRANSIT_LINES.map(l => [l.id, l]));
-
-const yesNo = (v) => (v === 'yes' || v === 'no' ? v : '');
-
-function cleanText(value, max = 500) {
-    if (value === undefined || value === null) return '';
-    return String(value).trim().slice(0, max);
+function cleanStr(val, max = 500) {
+    if (val === null || val === undefined) return '';
+    return String(val).trim().slice(0, max);
 }
 
-function cleanTags(tags) {
-    if (!Array.isArray(tags)) return [];
-    return [...new Set(tags.map(t => cleanText(t, 40)).filter(Boolean))].slice(0, 60);
+function cleanArray(arr, maxItems = 30, maxLen = 80) {
+    if (!Array.isArray(arr)) return [];
+    return [...new Set(arr.map(x => cleanStr(x, maxLen)).filter(Boolean))].slice(0, maxItems);
 }
 
-function normalizeName(name) {
-    return String(name || '')
-        .toLowerCase()
-        .replace(/บริษัท|จำกัด|\(มหาชน\)|มหาชน|ประเทศไทย/g, '')
-        .replace(/\b(co|ltd|limited|inc|corp|corporation|company|thailand)\b\.?/g, '')
-        .replace(/[^a-z0-9ก-๙]/g, '');
-}
+function companyFields(body = {}) {
+    const allowedSectors = ['เอกชน', 'ภาครัฐ', 'รัฐวิสาหกิจ'];
+    const sector = allowedSectors.includes(body.sector) ? body.sector : 'เอกชน';
 
-// เก็บเฉพาะสถานีที่มีอยู่จริง (สูงสุด 6) และให้ชื่อสายใน tags ตรงกับสถานีที่เลือกเสมอ
-// (ถ้าไม่ได้ส่ง stations มา จะไม่แตะ tags เดิม)
-function withStations(fields, rawStations) {
-    if (!Array.isArray(rawStations)) return fields;
-    const stations = [...new Set(rawStations)].filter(v => VALID_STATIONS.has(v)).slice(0, 6);
-    const lines = [...new Set(stations.map(v => LINE_BY_ID[v.split(':')[0]].name))];
-    const tags = fields.tags.filter(t => !LINE_NAMES.includes(t));
-    return { ...fields, stations, tags: [...tags, ...lines] };
-}
+    const isNoDeadline = body.noDeadline === true || cleanStr(body.time, 100) === 'ไม่มีกำหนดปิดรับสมัคร';
+    const timeStart = cleanStr(body.timeStart, 30);
+    const timeEnd = isNoDeadline ? '' : cleanStr(body.timeEnd, 30);
+    let time = cleanStr(body.time, 150) || '-';
+    if (isNoDeadline) time = 'ไม่มีกำหนดปิดรับสมัคร';
 
-function companyFields(body) {
-    return withStations({
-        name: cleanText(body.name, 150),
-        sourceLabel: cleanText(body.sourceLabel, 100),
-        loc: cleanText(body.loc, 200),
-        sector: SECTORS.includes(body.sector) ? body.sector : 'เอกชน',
-        desc: cleanText(body.desc, 1000),
-        pay: cleanText(body.pay, 100),
-        pos: cleanText(body.pos, 200),
-        time: cleanText(body.time, 100),
-        timeStart: cleanText(body.timeStart, 10),
-        timeEnd: cleanText(body.timeEnd, 10),
-        contact: cleanText(body.contact, 200),
-        tags: [...new Set(cleanTags(body.tags).map(t => LEGACY_POSITION_MAP[t] || t))],
-        mergeTargetId: cleanText(body.mergeTargetId, 60)
-    }, body.stations);
-}
+    const tags = cleanArray(body.tags, 40, 80);
+    if (!tags.includes(sector)) tags.unshift(sector);
 
-function toSectionObject(c) {
     return {
-        id: 'sec_' + Date.now() + crypto.randomBytes(2).toString('hex'),
-        sourceLabel: c.sourceLabel || '',
-        loc: c.loc || '',
-        desc: c.desc || '',
-        pay: c.pay || '',
-        pos: c.pos || '',
-        time: c.time || '',
-        timeStart: c.timeStart || '',
-        timeEnd: c.timeEnd || '',
-        contact: c.contact || '',
-        tags: Array.isArray(c.tags) ? c.tags : [],
-        stations: Array.isArray(c.stations) ? c.stations : [],
-        approvedAt: c.createdAt || new Date()
+        name: cleanStr(body.name, 150),
+        sector,
+        sourceLabel: cleanStr(body.sourceLabel, 150),
+        loc: cleanStr(body.loc, 250),
+        desc: cleanStr(body.desc, 2000),
+        pay: cleanStr(body.pay, 120),
+        pos: cleanStr(body.pos, 500),
+        time,
+        timeStart,
+        timeEnd,
+        contact: cleanStr(body.contact, 300),
+        tags,
+        stations: cleanArray(body.stations, 12, 60)
     };
 }
 
-const plain = (doc) => (doc && typeof doc.toObject === 'function' ? doc.toObject() : doc);
-const isApproved = (c) => c.status !== 'pending';
-const newId = (prefix) => prefix + Date.now() + crypto.randomBytes(2).toString('hex');
+function buildSectionFromFields(fields, sourceLabelOverride = '') {
+    return {
+        id: 'sec_' + Date.now() + crypto.randomBytes(2).toString('hex'),
+        sourceLabel: sourceLabelOverride || fields.sourceLabel || 'ข้อมูลหลัก',
+        loc: fields.loc,
+        desc: fields.desc,
+        pay: fields.pay,
+        pos: fields.pos,
+        time: fields.time,
+        timeStart: fields.timeStart,
+        timeEnd: fields.timeEnd,
+        contact: fields.contact,
+        tags: fields.tags,
+        stations: fields.stations,
+        approvedAt: new Date()
+    };
+}
+
+async function recomputeCompanyRating(companyId) {
+    const approvedReviews = await Review.find({ companyId, status: 'approved' }).select('rating');
+    const count = approvedReviews.length;
+    const avg = count
+        ? Math.round((approvedReviews.reduce((sum, r) => sum + Number(r.rating || 0), 0) / count) * 10) / 10
+        : 0;
+    await Company.updateOne({ id: companyId }, { ratingAvg: avg, reviewCount: count });
+}
 
 // ---------------------------------------------------------------------------
-// Routes: Auth
+// Admin Auth (In-memory Session Tokens)
 // ---------------------------------------------------------------------------
-app.post('/api/login', (req, res) => {
-    const { username, password } = req.body || {};
-    const isValid = admins.some(a => a.username === username && a.password === password);
-    if (isValid) {
-        res.json({ success: true, message: 'เข้าสู่ระบบสำเร็จ', token: createToken(username) });
-    } else {
-        res.status(401).json({ success: false, message: 'Username หรือ Password ไม่ถูกต้อง' });
+const activeTokens = new Map();
+
+function createToken() {
+    const token = crypto.randomBytes(24).toString('hex');
+    activeTokens.set(token, Date.now() + TOKEN_TTL_MS);
+    return token;
+}
+
+function requireAdmin(req, res, next) {
+    const auth = req.headers.authorization || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+    const expires = activeTokens.get(token);
+    if (!token || !expires || expires < Date.now()) {
+        activeTokens.delete(token);
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
     }
+    activeTokens.set(token, Date.now() + TOKEN_TTL_MS);
+    next();
+}
+
+app.post('/api/admin/login', loginLimiter, (req, res) => {
+    const username = cleanStr(req.body?.username, 100);
+    const password = cleanStr(req.body?.password, 100);
+
+    if (username === ADMIN_USER && password === ADMIN_PASS) {
+        return res.json({ success: true, token: createToken() });
+    }
+    return res.status(401).json({ success: false, message: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
+});
+
+app.get('/api/admin/verify', requireAdmin, (req, res) => {
+    res.json({ success: true });
+});
+
+app.post('/api/admin/logout', (req, res) => {
+    const auth = req.headers.authorization || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+    if (token) activeTokens.delete(token);
+    res.json({ success: true });
 });
 
 // ---------------------------------------------------------------------------
-// Routes: Companies (public)
+// Public Routes: Companies
 // ---------------------------------------------------------------------------
-
-// บริษัทที่อนุมัติแล้ว + คะแนนรีวิวเฉลี่ย
 app.get('/api/companies', async (req, res) => {
     try {
-        const [companies, reviews] = await Promise.all([Company.find(), Review.find({ status: 'approved' })]);
-        const stats = {};
-        reviews.map(plain).forEach(r => {
-            const s = stats[r.companyId] || (stats[r.companyId] = { sum: 0, count: 0, rec: 0 });
-            s.sum += Number(r.rating) || 0;
-            s.count++;
-            if (r.recommend) s.rec++;
-        });
-        const result = companies.map(plain).filter(isApproved).map(c => {
-            const s = stats[c.id];
-            return {
-                ...c,
-                reviewCount: s ? s.count : 0,
-                ratingAvg: s ? Math.round((s.sum / s.count) * 10) / 10 : null,
-                recommendPct: s ? Math.round((s.rec / s.count) * 100) : null
-            };
-        });
-        res.json(result);
+        const list = await Company.find({ status: 'approved' }).sort({ createdAt: -1 }).lean();
+        res.json(list);
     } catch (error) {
+        console.error(error);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 
-// ฟังก์ชันกลางสำหรับอนุมัติ 1 รายการ (แยกเคสสร้างใหม่ vs รวม Section)
-async function processApproveCompany(pendingDoc) {
-    const p = plain(pendingDoc);
-    if (!p) return false;
-
-    if (p.mergeTargetId) {
-        const target = await Company.findOne({ id: p.mergeTargetId });
-        if (target) {
-            const tObj = plain(target);
-            // ถ้าบริษัทเดิมยังไม่เคยมี sections ให้เอาข้อมูลเดิมของมันมาตั้งเป็น Section ที่ 1 ก่อน
-            const baseSections = (Array.isArray(tObj.sections) && tObj.sections.length > 0)
-                ? [...tObj.sections]
-                : [toSectionObject({ ...tObj, sourceLabel: 'ข้อมูลหลัก' })];
-
-            const incomingSection = (Array.isArray(p.sections) && p.sections.length > 0)
-                ? { ...p.sections[0], sourceLabel: p.sourceLabel || p.sections[0].sourceLabel || `ข้อมูลเพิ่มเติม (${baseSections.length + 1})`, approvedAt: new Date() }
-                : toSectionObject({ ...p, sourceLabel: p.sourceLabel || `ข้อมูลเพิ่มเติม (${baseSections.length + 1})` });
-
-            baseSections.push(incomingSection);
-
-            // รวม tags และ stations ของทุก section เข้าไว้ที่ระดับบนด้วย เพื่อให้ระบบค้นหาและกรองหน้าแรกหาเจอทั้งหมด
-            const mergedTags = [...new Set([...(tObj.tags || []), ...(incomingSection.tags || [])])];
-            const mergedStations = [...new Set([...(tObj.stations || []), ...(incomingSection.stations || [])])];
-
-            await Company.findOneAndUpdate(
-                { id: target.id },
-                {
-                    sections: baseSections,
-                    tags: mergedTags,
-                    stations: mergedStations
-                }
-            );
-            // ลบรายการ pending ที่รวมเสร็จแล้วออก
-            await Company.findOneAndDelete({ id: p.id });
-            return true;
-        }
-    }
-
-    // กรณีบริษัทใหม่ปกติ
-    const initialSections = (Array.isArray(p.sections) && p.sections.length > 0)
-        ? p.sections
-        : [toSectionObject(p)];
-    await Company.findOneAndUpdate(
-        { id: p.id },
-        { status: 'approved', sections: initialSections },
-        { new: true }
-    );
-    return true;
-}
-
-// เพิ่มบริษัท → รออนุมัติ (รองรับการส่งเพื่อขอรวมเข้าบริษัทเดิม)
-app.post('/api/companies', async (req, res) => {
+// ส่งเพิ่มบริษัทใหม่จากหน้าบ้าน (เข้าคิว pending)
+app.post('/api/companies', submitLimiter, async (req, res) => {
     try {
-        const data = companyFields(req.body || {});
-        if (!data.name || !data.loc) {
-            return res.status(400).json({ success: false, message: 'กรุณากรอกชื่อบริษัทและสถานที่ตั้ง' });
-        }
-
-        const key = normalizeName(data.name);
-        const existing = (await Company.find()).map(plain);
-
-        // ถ้าผู้ใช้ไม่ได้กดยืนยัน "รวมข้อมูล" (mergeTargetId) มา ให้เช็กชื่อซ้ำก่อน
-        if (!data.mergeTargetId) {
-            const dup = key && existing.find(c => normalizeName(c.name) === key ||
-                (key.length >= 4 && normalizeName(c.name).includes(key)) ||
-                (normalizeName(c.name).length >= 4 && key.includes(normalizeName(c.name)))
-            );
-            if (dup) {
-                return res.status(409).json({
-                    success: false,
-                    duplicate: true,
-                    matchedCompany: { id: dup.id, name: dup.name, isApproved: isApproved(dup) },
-                    message: isApproved(dup) ? `มี "${dup.name}" อยู่ในเว็บแล้ว` : `มีคนส่ง "${dup.name}" มาแล้ว กำลังรอแอดมินตรวจสอบ`
-                });
-            }
-        } else {
-            // ตรวจสอบว่าบริษัทปลายทางที่จะรวมมีอยู่จริง
-            const target = existing.find(c => c.id === data.mergeTargetId);
-            if (!target) {
-                return res.status(404).json({ success: false, message: 'ไม่พบบริษัทต้นทางที่ต้องการรวมข้อมูล' });
-            }
+        const fields = companyFields(req.body);
+        if (!fields.name) {
+            return res.status(400).json({ success: false, message: 'กรุณากรอกชื่อบริษัท' });
         }
 
         const newCompany = new Company({
-            ...data,
-            id: 'c' + Date.now(),
-            sections: [toSectionObject(data)],
+            id: 'comp_' + Date.now() + crypto.randomBytes(2).toString('hex'),
             status: 'pending',
-            createdAt: new Date()
+            ...fields,
+            sections: [buildSectionFromFields(fields)]
         });
+
         await newCompany.save();
-        res.json({ success: true, pending: true, mergedRequest: Boolean(data.mergeTargetId), company: newCompany });
+        res.status(201).json({ success: true, id: newCompany.id });
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 
-// รีวิวของบริษัท (เฉพาะที่อนุมัติแล้ว)
+// ---------------------------------------------------------------------------
+// Public Routes: Reviews & Reports & Tag Stats
+// ---------------------------------------------------------------------------
 app.get('/api/companies/:id/reviews', async (req, res) => {
     try {
-        const reviews = (await Review.find({ companyId: req.params.id, status: 'approved' })).map(plain);
-        reviews.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        const reviews = await Review.find({ companyId: req.params.id, status: 'approved' })
+            .sort({ createdAt: -1 })
+            .lean();
         res.json(reviews);
-    } catch (error) {
-        res.status(500).json({ success: false, message: 'Server error' });
-    }
-});
-
-// เขียนรีวิว → รออนุมัติ
-app.post('/api/companies/:id/reviews', async (req, res) => {
-    try {
-        const company = await Company.findOne({ id: req.params.id });
-        if (!company || !isApproved(plain(company))) return res.status(404).json({ success: false, message: 'ไม่พบบริษัทนี้' });
-
-        const body = req.body || {};
-        const rating = Math.round(Number(body.rating));
-        const text = cleanText(body.text, 1500);
-        if (!(rating >= 1 && rating <= 5)) return res.status(400).json({ success: false, message: 'กรุณาให้คะแนน 1-5 ดาว' });
-        if (text.length < 10) return res.status(400).json({ success: false, message: 'เล่าประสบการณ์อย่างน้อย 10 ตัวอักษรนะ' });
-
-        const review = new Review({
-            id: newId('r'),
-            companyId: req.params.id,
-            rating,
-            role: cleanText(body.role, 100),
-            workMode: ['Onsite', 'Hybrid', 'Remote'].includes(body.workMode) ? body.workMode : '',
-            pay: cleanText(body.pay, 100),
-            recommend: body.recommend === true || body.recommend === 'yes',
-            text,
-            year: /^(25[0-9]{2}|20[0-9]{2})$/.test(String(body.year || '')) ? String(body.year) : '',
-            interviewQuestions: cleanText(body.interviewQuestions, 1500),
-            hasTest: yesNo(body.hasTest),
-            needPortfolio: yesNo(body.needPortfolio),
-            difficulty: ['easy', 'medium', 'hard'].includes(body.difficulty) ? body.difficulty : '',
-            status: 'pending',
-            createdAt: new Date()
-        });
-        await review.save();
-        res.json({ success: true, pending: true });
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 
-// แจ้งข้อมูลผิด
-app.post('/api/companies/:id/report', async (req, res) => {
+app.post('/api/companies/:id/reviews', submitLimiter, async (req, res) => {
     try {
-        const company = await Company.findOne({ id: req.params.id });
-        if (!company) return res.status(404).json({ success: false, message: 'ไม่พบบริษัทนี้' });
-        const message = cleanText((req.body || {}).message, 1000);
-        if (message.length < 5) return res.status(400).json({ success: false, message: 'ช่วยบอกหน่อยว่าข้อมูลตรงไหนผิด' });
+        const c = await Company.findOne({ id: req.params.id, status: 'approved' });
+        if (!c) return res.status(404).json({ success: false, message: 'ไม่พบบริษัทนี้' });
 
-        const report = new Report({ id: newId('p'), companyId: req.params.id, companyName: plain(company).name, message, createdAt: new Date() });
-        await report.save();
-        res.json({ success: true });
+        const rating = Number(req.body?.rating);
+        const text = cleanStr(req.body?.text, 1500);
+        if (!rating || rating < 1 || rating > 5) {
+            return res.status(400).json({ success: false, message: 'กรุณาให้คะแนน 1-5 ดาว' });
+        }
+        if (text.length < 10) {
+            return res.status(400).json({ success: false, message: 'กรุณาเล่าประสบการณ์อย่างน้อย 10 ตัวอักษร' });
+        }
+
+        const review = new Review({
+            id: 'rev_' + Date.now() + crypto.randomBytes(2).toString('hex'),
+            companyId: c.id,
+            companyName: c.name,
+            status: 'pending',
+            rating,
+            year: cleanStr(req.body?.year, 10),
+            role: cleanStr(req.body?.role, 100),
+            pay: cleanStr(req.body?.pay, 100),
+            workMode: cleanStr(req.body?.workMode, 50),
+            recommend: req.body?.recommend !== false,
+            difficulty: cleanStr(req.body?.difficulty, 20),
+            hasTest: cleanStr(req.body?.hasTest, 10),
+            needPortfolio: cleanStr(req.body?.needPortfolio, 10),
+            interviewQuestions: cleanStr(req.body?.interviewQuestions, 1500),
+            text
+        });
+
+        await review.save();
+        res.status(201).json({ success: true });
     } catch (error) {
+        console.error(error);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 
-// Tag ยอดนิยม: นับเมื่อมีคนกดปุ่มลัดหรือใช้ตัวกรอง (นับเฉพาะ Tag ที่อยู่ในรายการ)
-app.post('/api/stats/tags', async (req, res) => {
+// แจ้งข้อมูลผิด / ไม่อัปเดต (รองรับการระบุ sectionLabel แบบไม่บังคับ)
+app.post('/api/companies/:id/report', reportLimiter, async (req, res) => {
     try {
-        const tags = Array.isArray((req.body || {}).tags) ? req.body.tags : [];
-        const valid = [...new Set(tags)].filter(t => TRACKABLE_TAGS.includes(t)).slice(0, 5);
-        for (const tag of valid) {
-            const updated = await TagStat.findOneAndUpdate({ tag }, { $inc: { count: 1 } }, { new: true });
-            if (!updated) await new TagStat({ tag, count: 1 }).save();
+        const c = await Company.findOne({ id: req.params.id });
+        if (!c) return res.status(404).json({ success: false, message: 'ไม่พบบริษัทนี้' });
+
+        const message = cleanStr(req.body?.message, 1000);
+        const sectionLabel = cleanStr(req.body?.sectionLabel, 200);
+        if (message.length < 5) {
+            return res.status(400).json({ success: false, message: 'กรุณาระบุรายละเอียดอย่างน้อย 5 ตัวอักษร' });
         }
-        res.json({ success: true });
+
+        const report = new Report({
+            id: 'rep_' + Date.now() + crypto.randomBytes(2).toString('hex'),
+            companyId: c.id,
+            companyName: c.name,
+            sectionLabel,
+            message
+        });
+
+        await report.save();
+        res.status(201).json({ success: true });
     } catch (error) {
+        console.error(error);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 
 app.get('/api/stats/popular', async (req, res) => {
     try {
-        const totals = {};
-        (await TagStat.find()).map(plain).forEach(s => {
-            const tag = LEGACY_POSITION_MAP[s.tag] || s.tag;
-            if (TRACKABLE_TAGS.includes(tag)) totals[tag] = (totals[tag] || 0) + (s.count || 0);
-        });
-        const top = Object.entries(totals).sort((a, b) => b[1] - a[1]).slice(0, 8);
-        res.json(top.map(([tag, count]) => ({ tag, count })));
-    } catch (error) {
-        res.status(500).json({ success: false, message: 'Server error' });
+        const items = await TagStat.find().sort({ count: -1, updatedAt: -1 }).limit(8).lean();
+        res.json(items);
+    } catch {
+        res.json([]);
+    }
+});
+
+app.post('/api/stats/tags', async (req, res) => {
+    try {
+        const tags = cleanArray(req.body?.tags, 10, 80);
+        await Promise.all(tags.map(tag =>
+            TagStat.updateOne(
+                { tag },
+                { $inc: { count: 1 }, $set: { updatedAt: new Date() } },
+                { upsert: true }
+            )
+        ));
+        res.json({ success: true });
+    } catch {
+        res.json({ success: false });
     }
 });
 
 // ---------------------------------------------------------------------------
-// Routes: Admin (ต้อง login)
+// Admin Routes: Companies, Merge Sections, Reviews & Reports
 // ---------------------------------------------------------------------------
-
-// บริษัททั้งหมด รวมที่รออนุมัติ
 app.get('/api/admin/companies', requireAdmin, async (req, res) => {
     try {
-        const companies = (await Company.find()).map(plain);
-        res.json(companies.map(c => ({ ...c, status: c.status || 'approved' })));
+        const list = await Company.find().sort({ createdAt: -1 }).lean();
+        res.json(list);
     } catch (error) {
+        console.error(error);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 
-// แก้ไขบริษัท
-app.put('/api/companies/:id', requireAdmin, async (req, res) => {
+// แอดมินเพิ่มบริษัทโดยตรง (อนุมัติทันที)
+app.post('/api/admin/companies', requireAdmin, async (req, res) => {
     try {
-        const update = companyFields(req.body || {});
-        if (['approved', 'pending'].includes((req.body || {}).status)) update.status = req.body.status;
-        const updatedCompany = await Company.findOneAndUpdate({ id: req.params.id }, update, { new: true });
-        if (!updatedCompany) return res.status(404).json({ success: false, message: 'ไม่พบบริษัทนี้' });
-        res.json({ success: true, company: updatedCompany });
+        const fields = companyFields(req.body);
+        if (!fields.name) {
+            return res.status(400).json({ success: false, message: 'กรุณากรอกชื่อบริษัท' });
+        }
+
+        const newCompany = new Company({
+            id: 'comp_' + Date.now() + crypto.randomBytes(2).toString('hex'),
+            status: 'approved',
+            ...fields,
+            sections: [buildSectionFromFields(fields)]
+        });
+
+        await newCompany.save();
+        res.status(201).json({ success: true, company: newCompany });
     } catch (error) {
+        console.error(error);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 
-// แก้ไขบริษัท (รองรับการบันทึก sections ที่แก้ไขราย Section)
+// อนุมัติบริษัทที่รออนุมัติ
+app.patch('/api/companies/:id/approve', requireAdmin, async (req, res) => {
+    try {
+        const c = await Company.findOne({ id: req.params.id });
+        if (!c) return res.status(404).json({ success: false, message: 'ไม่พบบริษัทนี้' });
+
+        c.status = 'approved';
+        if (!Array.isArray(c.sections) || c.sections.length === 0) {
+            c.sections = [buildSectionFromFields(c)];
+        }
+        await c.save();
+        res.json({ success: true, company: c });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+});
+
+// รวมข้อมูลบริษัทที่รออนุมัติ (sourceId) เข้าไปเป็นอีก Section ในบริษัทหลัก (targetId)
+app.post('/api/admin/companies/:targetId/merge/:sourceId', requireAdmin, async (req, res) => {
+    try {
+        const target = await Company.findOne({ id: req.params.targetId });
+        const source = await Company.findOne({ id: req.params.sourceId });
+        if (!target || !source) {
+            return res.status(404).json({ success: false, message: 'ไม่พบข้อมูลบริษัทต้นทางหรือปลายทาง' });
+        }
+        if (target.id === source.id) {
+            return res.status(400).json({ success: false, message: 'ไม่สามารถรวมบริษัทเดียวกันเองได้' });
+        }
+
+        if (!Array.isArray(target.sections) || target.sections.length === 0) {
+            target.sections = [buildSectionFromFields(target, target.sourceLabel || 'ข้อมูลหลัก')];
+        }
+
+        const label = cleanStr(req.body?.sourceLabel, 150) || source.sourceLabel || `ข้อมูลเพิ่มเติม (${target.sections.length + 1})`;
+        const incomingSections = (Array.isArray(source.sections) && source.sections.length > 0)
+            ? source.sections.map((s, idx) => ({
+                ...s.toObject(),
+                id: 'sec_' + Date.now() + idx + crypto.randomBytes(2).toString('hex'),
+                sourceLabel: idx === 0 ? label : (s.sourceLabel || label),
+                approvedAt: new Date()
+            }))
+            : [buildSectionFromFields(source, label)];
+
+        target.sections.push(...incomingSections);
+        target.tags = [...new Set([target.sector, ...target.sections.flatMap(s => s.tags || [])])];
+        target.stations = [...new Set(target.sections.flatMap(s => s.stations || []))].slice(0, 12);
+
+        await target.save();
+        await Company.deleteOne({ id: source.id });
+
+        res.json({ success: true, company: target });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+});
+
+// แก้ไขบริษัท (รองรับการแก้ไขและบันทึกแยกตาม Section)
 app.put('/api/companies/:id', requireAdmin, async (req, res) => {
     try {
         const body = req.body || {};
@@ -514,7 +518,6 @@ app.put('/api/companies/:id', requireAdmin, async (req, res) => {
                     approvedAt: s.approvedAt || new Date()
                 };
             });
-            // รวม tags และ stations จากทุก section ไว้ที่ระดับบนเสมอ
             update.tags = [...new Set([update.sector, ...update.sections.flatMap(s => s.tags || [])])];
             update.stations = [...new Set(update.sections.flatMap(s => s.stations || []))].slice(0, 12);
         }
@@ -528,137 +531,81 @@ app.put('/api/companies/:id', requireAdmin, async (req, res) => {
     }
 });
 
-// อนุมัติบริษัท
-app.post('/api/companies/:id/approve', requireAdmin, async (req, res) => {
-    try {
-        const doc = await Company.findOne({ id: req.params.id });
-        if (!doc) return res.status(404).json({ success: false, message: 'ไม่พบบริษัทนี้' });
-        await processApproveCompany(doc);
-        res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ success: false, message: 'Server error' });
-    }
-});
-
-// นำเข้าหลายบริษัทพร้อมกัน (จากไฟล์ CSV ในหน้าแอดมิน) — ชื่อซ้ำจะถูกข้าม
-app.post('/api/admin/import', requireAdmin, async (req, res) => {
-    try {
-        const rows = Array.isArray((req.body || {}).companies) ? req.body.companies.slice(0, 500) : [];
-        const status = req.body.status === 'approved' ? 'approved' : 'pending';
-        const existing = (await Company.find()).map(plain);
-        const seen = new Set(existing.map(c => normalizeName(c.name)));
-        const added = [];
-        const skipped = [];
-        let n = 0;
-        for (const row of rows) {
-            const data = companyFields(row || {});
-            if (!data.name) { skipped.push({ name: '', reason: 'ไม่มีชื่อบริษัท' }); continue; }
-            const key = normalizeName(data.name);
-            if (seen.has(key)) { skipped.push({ name: data.name, reason: 'มีบริษัทนี้อยู่แล้ว' }); continue; }
-            seen.add(key);
-            await new Company({ ...data, id: 'c' + Date.now() + String(n++).padStart(3, '0'), status, createdAt: new Date() }).save();
-            added.push(data.name);
-        }
-        res.json({ success: true, added: added.length, skipped });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ success: false, message: 'Server error' });
-    }
-});
-
-// อนุมัติบริษัทที่ "รออนุมัติ" ทั้งหมดในครั้งเดียว
-app.post('/api/admin/companies/approve-all', requireAdmin, async (req, res) => {
-    try {
-        const pending = await Company.find({ status: 'pending' });
-        for (const c of pending) await processApproveCompany(c);
-        res.json({ success: true, approved: pending.length });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ success: false, message: 'Server error' });
-    }
-});
-
-// ลบบริษัทที่ "รออนุมัติ" ทั้งหมดในครั้งเดียว (เช่น ล้างข้อมูล CSV เก่าที่ยังไม่ได้อนุมัติ)
-app.post('/api/admin/companies/delete-pending', requireAdmin, async (req, res) => {
-    try {
-        const pending = (await Company.find({ status: 'pending' })).map(plain);
-        for (const c of pending) {
-            await Company.findOneAndDelete({ id: c.id });
-            await Review.deleteMany({ companyId: c.id });
-            await Report.deleteMany({ companyId: c.id });
-        }
-        res.json({ success: true, deleted: pending.length });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ success: false, message: 'Server error' });
-    }
-});
-
-// ลบบริษัท (พร้อมรีวิวและรายงานของบริษัทนั้น)
+// ลบบริษัท (พร้อมรีวิวและแจ้งเตือนที่เกี่ยวข้อง)
 app.delete('/api/companies/:id', requireAdmin, async (req, res) => {
     try {
-        await Company.findOneAndDelete({ id: req.params.id });
-        await Review.deleteMany({ companyId: req.params.id });
-        await Report.deleteMany({ companyId: req.params.id });
+        const deleted = await Company.findOneAndDelete({ id: req.params.id });
+        if (!deleted) return res.status(404).json({ success: false, message: 'ไม่พบบริษัทนี้' });
+        await Promise.all([
+            Review.deleteMany({ companyId: req.params.id }),
+            Report.deleteMany({ companyId: req.params.id })
+        ]);
         res.json({ success: true });
     } catch (error) {
+        console.error(error);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 
-// รีวิวทั้งหมด (สำหรับตรวจ)
+// Admin: Reviews
 app.get('/api/admin/reviews', requireAdmin, async (req, res) => {
     try {
-        const [reviews, companies] = await Promise.all([Review.find(), Company.find()]);
-        const names = {};
-        companies.map(plain).forEach(c => { names[c.id] = c.name; });
-        const result = reviews.map(plain).map(r => ({ ...r, companyName: names[r.companyId] || '(บริษัทถูกลบแล้ว)' }));
-        result.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        res.json(result);
+        const list = await Review.find().sort({ createdAt: -1 }).lean();
+        res.json(list);
     } catch (error) {
+        console.error(error);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 
-app.post('/api/reviews/:id/approve', requireAdmin, async (req, res) => {
+app.patch('/api/admin/reviews/:id/approve', requireAdmin, async (req, res) => {
     try {
-        const updated = await Review.findOneAndUpdate({ id: req.params.id }, { status: 'approved' }, { new: true });
-        if (!updated) return res.status(404).json({ success: false, message: 'ไม่พบรีวิวนี้' });
+        const rv = await Review.findOneAndUpdate({ id: req.params.id }, { status: 'approved' }, { new: true });
+        if (!rv) return res.status(404).json({ success: false, message: 'ไม่พบรีวิวนี้' });
+        await recomputeCompanyRating(rv.companyId);
         res.json({ success: true });
     } catch (error) {
+        console.error(error);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 
-app.delete('/api/reviews/:id', requireAdmin, async (req, res) => {
+app.delete('/api/admin/reviews/:id', requireAdmin, async (req, res) => {
     try {
-        await Review.findOneAndDelete({ id: req.params.id });
+        const rv = await Review.findOneAndDelete({ id: req.params.id });
+        if (!rv) return res.status(404).json({ success: false, message: 'ไม่พบรีวิวนี้' });
+        await recomputeCompanyRating(rv.companyId);
         res.json({ success: true });
     } catch (error) {
+        console.error(error);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 
-// รายการแจ้งข้อมูลผิด
+// Admin: Reports
 app.get('/api/admin/reports', requireAdmin, async (req, res) => {
     try {
-        const reports = (await Report.find()).map(plain);
-        reports.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        res.json(reports);
+        const list = await Report.find().sort({ createdAt: -1 }).lean();
+        res.json(list);
     } catch (error) {
+        console.error(error);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 
-app.delete('/api/reports/:id', requireAdmin, async (req, res) => {
+app.delete('/api/admin/reports/:id', requireAdmin, async (req, res) => {
     try {
-        await Report.findOneAndDelete({ id: req.params.id });
+        await Report.deleteOne({ id: req.params.id });
         res.json({ success: true });
     } catch (error) {
+        console.error(error);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 
+// ---------------------------------------------------------------------------
+// Start Server
+// ---------------------------------------------------------------------------
 app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
 });

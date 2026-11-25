@@ -1,331 +1,436 @@
-// admin.js — หน้าแอดมิน
-// ต้องโหลด common.js ก่อนไฟล์นี้
+// admin.js — หน้าจัดการสำหรับแอดมิน (อนุมัติ รวม Section แก้ไข ลบ และตรวจรีวิว/แจ้งข้อมูลผิด)
+// ต้องโหลด transit-data.js, tag-data.js และ common.js ก่อนไฟล์นี้
 
+const TOKEN_KEY = 'ict-admin-token';
 let companiesCache = [];
 let reviewsCache = [];
 let reportsCache = [];
-let currentTab = 'pending';
+let activeTab = 'pending';
 
-// ---------------------------------------------------------------------------
-// Auth
-// ---------------------------------------------------------------------------
 function getToken() {
-    try { return sessionStorage.getItem('adminToken') || ''; } catch { return ''; }
+    return sessionStorage.getItem(TOKEN_KEY) || '';
+}
+
+function setToken(token) {
+    if (token) sessionStorage.setItem(TOKEN_KEY, token);
+    else sessionStorage.removeItem(TOKEN_KEY);
 }
 
 async function authFetch(url, options = {}) {
-    const res = await fetch(url, {
-        ...options,
-        headers: { ...(options.headers || {}), Authorization: 'Bearer ' + getToken() }
-    });
+    const headers = { ...(options.headers || {}), Authorization: `Bearer ${getToken()}` };
+    const res = await fetch(url, { ...options, headers });
     if (res.status === 401) {
-        try { sessionStorage.removeItem('adminToken'); } catch { /* ignore */ }
-        showLogin();
-        showToast('หมดเวลาเข้าสู่ระบบ กรุณา login ใหม่นะ', 'error');
+        setToken('');
+        showLoginView();
+        showToast('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่', 'error');
         throw new Error('unauthorized');
     }
     return res;
 }
 
-function showLogin() {
-    document.getElementById('loginWrap').style.display = '';
-    document.getElementById('loginSection').style.display = '';
-    document.getElementById('adminPanel').style.display = 'none';
+// ---------------------------------------------------------------------------
+// Auth & View Switching
+// ---------------------------------------------------------------------------
+function showLoginView() {
+    document.getElementById('loginContainer').classList.remove('hidden');
+    document.getElementById('dashboardContainer').classList.add('hidden');
+    document.getElementById('btnLogout').classList.add('hidden');
 }
 
-function showPanel() {
-    document.getElementById('loginWrap').style.display = 'none';
-    document.getElementById('loginSection').style.display = 'none';
-    document.getElementById('adminPanel').style.display = 'block';
-    loadData();
+function showDashboardView() {
+    document.getElementById('loginContainer').classList.add('hidden');
+    document.getElementById('dashboardContainer').classList.remove('hidden');
+    document.getElementById('btnLogout').classList.remove('hidden');
 }
 
-function logout() {
-    try { sessionStorage.removeItem('adminToken'); } catch { /* ignore */ }
-    location.reload();
+async function initAdmin() {
+    if (!getToken()) return showLoginView();
+    try {
+        const res = await fetch(`${API_URL}/admin/verify`, {
+            headers: { Authorization: `Bearer ${getToken()}` }
+        });
+        if (!res.ok) throw new Error('invalid token');
+        showDashboardView();
+        loadData();
+    } catch {
+        setToken('');
+        showLoginView();
+    }
 }
 
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const u = document.getElementById('username').value;
-    const p = document.getElementById('password').value;
+    const username = document.getElementById('adminUser').value.trim();
+    const password = document.getElementById('adminPass').value;
+    const errEl = document.getElementById('loginError');
+    errEl.style.display = 'none';
 
     try {
-        const res = await fetch(`${API_URL}/login`, {
+        const res = await fetch(`${API_URL}/admin/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: u, password: p })
+            body: JSON.stringify({ username, password })
         });
         const data = await res.json();
-
-        if (data.success) {
-            try { sessionStorage.setItem('adminToken', data.token); } catch { /* ignore */ }
-            showPanel();
+        if (data.success && data.token) {
+            setToken(data.token);
+            e.target.reset();
+            showDashboardView();
+            loadData();
         } else {
-            showToast(data.message || 'เข้าสู่ระบบไม่สำเร็จ', 'error');
+            errEl.textContent = data.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';
+            errEl.style.display = 'block';
         }
-    } catch (err) {
-        showToast('ไม่สามารถเชื่อมต่อ Server ได้', 'error');
+    } catch {
+        errEl.textContent = 'ไม่สามารถเชื่อมต่อ Server ได้';
+        errEl.style.display = 'block';
     }
 });
 
-// ---------------------------------------------------------------------------
-// Tabs
-// ---------------------------------------------------------------------------
-function setTab(name) {
-    currentTab = name;
-    document.querySelectorAll('.admin-tab').forEach(t => {
-        const on = t.dataset.tab === name;
-        t.classList.toggle('active', on);
-        t.setAttribute('aria-selected', String(on));
-    });
-    document.querySelectorAll('.admin-pane').forEach(p => p.classList.toggle('hidden', p.id !== 'pane-' + name));
-}
-
-document.querySelectorAll('.admin-tab').forEach(t => t.addEventListener('click', () => setTab(t.dataset.tab)));
+document.getElementById('btnLogout').addEventListener('click', async () => {
+    try {
+        await fetch(`${API_URL}/admin/logout`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${getToken()}` }
+        });
+    } catch { /* ignore */ }
+    setToken('');
+    showLoginView();
+});
 
 // ---------------------------------------------------------------------------
-// Load
+// Load All Admin Data
 // ---------------------------------------------------------------------------
 async function loadData() {
     try {
-        const [cRes, rRes, pRes] = await Promise.all([
+        const [compRes, revRes, repRes] = await Promise.all([
             authFetch(`${API_URL}/admin/companies`),
             authFetch(`${API_URL}/admin/reviews`),
             authFetch(`${API_URL}/admin/reports`)
         ]);
-        if (!cRes.ok || !rRes.ok || !pRes.ok) throw new Error('server');
-        companiesCache = (await cRes.json()).map(c => ({ ...c, tags: normalizeTags(c.tags) }));
-        reviewsCache = await rRes.json();
-        reportsCache = await pRes.json();
-        renderAll();
+
+        companiesCache = await compRes.json();
+        reviewsCache = await revRes.json();
+        reportsCache = await repRes.json();
+
+        updateTabCounts();
+        renderAllViews();
     } catch (err) {
-        if (err.message === 'unauthorized') return;
-        document.getElementById('pendingCompanies').innerHTML = emptyState('confused-404', 'โหลดข้อมูลไม่ได้ ลองรีเฟรชหน้าอีกครั้งนะ');
-        document.getElementById('pendingReviews').innerHTML = '';
-        document.getElementById('companyTableBody').innerHTML = '<tr><td class="admin-empty" colspan="5">โหลดข้อมูลไม่ได้</td></tr>';
+        if (err.message !== 'unauthorized') {
+            console.error(err);
+            showToast('โหลดข้อมูลไม่สำเร็จ', 'error');
+        }
     }
 }
 
-function renderAll() {
-    const pendingCompanies = companiesCache.filter(c => c.status === 'pending');
-    const pendingReviews = reviewsCache.filter(r => r.status === 'pending');
-    const approvedCount = companiesCache.length - pendingCompanies.length;
+function updateTabCounts() {
+    const pendingComp = companiesCache.filter(c => c.status === 'pending').length;
+    const approvedComp = companiesCache.filter(c => c.status === 'approved').length;
+    const pendingRev = reviewsCache.filter(r => r.status === 'pending').length;
+    const repCount = reportsCache.length;
 
-    document.getElementById('adminCount').textContent = `แสดงบนเว็บ ${approvedCount} บริษัท`;
-    setBadge('badgePending', pendingCompanies.length + pendingReviews.length);
-    setBadge('badgeReports', reportsCache.length);
-
-    const approveAllBtn = document.getElementById('btnApproveAll');
-    approveAllBtn.classList.toggle('hidden', !pendingCompanies.length);
-    approveAllBtn.lastChild.textContent = `อนุมัติทั้งหมด (${pendingCompanies.length})`;
-    const delBtn = document.getElementById('btnDeletePending');
-    delBtn.classList.toggle('hidden', !pendingCompanies.length);
-    delBtn.lastChild.textContent = `ลบที่รออนุมัติทั้งหมด (${pendingCompanies.length})`;
-
-    document.getElementById('pendingCompanies').innerHTML = pendingCompanies.length
-        ? pendingCompanies.map(pendingCompanyHTML).join('')
-        : emptyState('happy', 'ไม่มีบริษัทค้างตรวจแล้ว เก่งมาก!');
-    document.getElementById('pendingReviews').innerHTML = pendingReviews.length
-        ? pendingReviews.map(r => reviewCardHTML(r)).join('')
-        : emptyState('sleepy', 'ยังไม่มีรีวิวใหม่');
-
-    renderTable();
-
-    document.getElementById('allReviews').innerHTML = reviewsCache.length
-        ? reviewsCache.map(r => reviewCardHTML(r)).join('')
-        : emptyState('sleepy', 'ยังไม่มีรีวิวเลย');
-
-    document.getElementById('reportList').innerHTML = reportsCache.length
-        ? reportsCache.map(reportCardHTML).join('')
-        : emptyState('happy', 'ไม่มีใครแจ้งข้อมูลผิด เยี่ยมไปเลย');
+    document.getElementById('pendingCount').textContent = pendingComp;
+    document.getElementById('approvedCount').textContent = approvedComp;
+    document.getElementById('reviewCount').textContent = pendingRev;
+    document.getElementById('reportCount').textContent = repCount;
 }
 
-function setBadge(id, n) {
-    const el = document.getElementById(id);
-    el.textContent = n || '';
+function renderAllViews() {
+    const q = (document.getElementById('adminSearch')?.value || '').trim().toLowerCase();
+
+    const matchCompany = (c) => {
+        if (!q) return true;
+        const sections = Array.isArray(c.sections) ? c.sections : [];
+        const hay = [
+            c.name, c.sector, c.loc, c.pos, c.desc,
+            ...(c.tags || []),
+            ...sections.flatMap(s => [s.sourceLabel, s.loc, s.pos, s.desc])
+        ].filter(Boolean).join(' ').toLowerCase();
+        return hay.includes(q);
+    };
+
+    const pendingList = companiesCache.filter(c => c.status === 'pending' && matchCompany(c));
+    const approvedList = companiesCache.filter(c => c.status === 'approved' && matchCompany(c));
+
+    renderPendingCompanies(pendingList);
+    renderApprovedCompanies(approvedList);
+    renderPendingReviews(reviewsCache.filter(r => r.status === 'pending'));
+    renderReports(reportsCache);
 }
 
-function emptyState(pose, text) {
-    return `<div class="memo-state compact admin-empty-state"><img src="${MEMO}${pose}.webp" alt="" width="200" height="220"><p>${escapeHTML(text)}</p></div>`;
-}
-
-function formatDateTime(d) {
-    if (!d) return '';
-    const date = new Date(d);
-    return date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }) + ' ' +
-        date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-}
-
-function contactHTML(contact) {
-    if (!contact || contact === '-') return '-';
-    if (contact.startsWith('http') || contact.startsWith('www.')) {
-        const url = contact.startsWith('www.') ? 'http://' + contact : contact;
-        return `<a href="${escapeHTML(url)}" target="_blank" rel="noopener" class="link-break">${escapeHTML(contact)}</a>`;
-    }
-    return escapeHTML(contact);
-}
+document.getElementById('adminSearch')?.addEventListener('input', renderAllViews);
 
 // ---------------------------------------------------------------------------
-// Cards
+// Tabs Navigation
 // ---------------------------------------------------------------------------
-function pendingCompanyHTML(c) {
-    const id = escapeHTML(c.id);
-    const targetCompany = c.mergeTargetId ? companiesCache.find(x => x.id === c.mergeTargetId) : null;
-    const mergeBanner = c.mergeTargetId
-        ? `<div class="merge-notice">${icon('compare')}<span>ขอรวมเป็น Section ใหม่เข้ากับ: <b>${escapeHTML(targetCompany ? targetCompany.name : c.name)}</b>${c.sourceLabel ? ` (หัวข้อ: ${escapeHTML(c.sourceLabel)})` : ''}</span></div>`
-        : '';
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        activeTab = btn.dataset.tab;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
 
-    const positions = (c.tags || []).filter(t => POSITION_TAGS.includes(t));
-    const tags = positions.map(positionPillHTML).join('') + (c.tags || []).filter(t => t !== c.sector && !TRANSIT_TAGS.includes(t) && !POSITION_TAGS.includes(t)).map(t => `<span class="mini-tag">${escapeHTML(t)}</span>`).join('');
-    const rows = [
-        ['pin', c.loc], ['phone', c.contact], ['briefcase', c.pos], ['coins', c.pay], ['calendar', c.time], ['file', c.desc]
-    ].filter(([, v]) => v && v !== '-')
-        .map(([ic, v]) => `<p class="admin-row">${icon(ic)}<span>${ic === 'phone' ? contactHTML(v) : escapeHTML(v)}</span></p>`).join('');
-    return `
-        <article class="admin-card ${c.mergeTargetId ? 'is-merge' : ''}">
-            ${mergeBanner}
-            <div class="admin-card-head">
-                ${logoHTML(c)}
-                <div>
-                    <h4>${escapeHTML(c.name)}</h4>
-                    <div class="card-pills"><span class="sector-tag ${SECTOR_CLASS[c.sector] || ''}">${escapeHTML(c.sector)}</span>${statusBadgeHTML(c)}</div>
-                </div>
-                <span class="admin-date">${formatDateTime(c.createdAt)}</span>
-            </div>
-            ${rows}
-            ${(c.stations || []).length ? `<div class="station-pills">${c.stations.map(stationPillHTML).join('')}</div>` : ''}
-            ${tags ? `<div class="modal-tags">${tags}</div>` : ''}
-            <div class="admin-card-actions">
-                <button class="btn-approve" onclick="approveCompany('${id}')">${icon('check')}${c.mergeTargetId ? 'อนุมัติและรวมข้อมูล' : 'อนุมัติ'}</button>
-                <button class="btn-edit" onclick="openEditModal('${id}')">${icon('pencil')}แก้ไข</button>
-                <button class="btn-del" onclick="deleteCompany('${id}')">${icon('trash')}ลบ</button>
-            </div>
-        </article>`;
-}
-
-function reviewCardHTML(r) {
-    const id = escapeHTML(r.id);
-    const meta = [r.year ? `ฝึกปี ${r.year}` : '', r.role, r.workMode, r.pay ? `ได้ ${r.pay}` : ''].filter(Boolean).map(escapeHTML).join(' · ');
-    const pending = r.status === 'pending';
-    const facts = [
-        r.difficulty ? DIFFICULTY_LABEL[r.difficulty] : '',
-        r.hasTest === 'yes' ? 'มีข้อสอบ' : r.hasTest === 'no' ? 'ไม่มีข้อสอบ' : '',
-        r.needPortfolio === 'yes' ? 'ใช้ portfolio' : r.needPortfolio === 'no' ? 'ไม่ต้องใช้ portfolio' : ''
-    ].filter(Boolean);
-    const interview = (facts.length || r.interviewQuestions) ? `
-            <div class="review-interview">
-                <p class="ri-title">${icon('mic')}สัมภาษณ์</p>
-                ${facts.length ? `<div class="ri-facts">${facts.map(f => `<span class="mini-tag">${escapeHTML(f)}</span>`).join('')}</div>` : ''}
-                ${r.interviewQuestions ? `<p class="review-text">${escapeHTML(r.interviewQuestions)}</p>` : ''}
-            </div>` : '';
-    return `
-        <article class="admin-card ${pending ? 'is-pending' : ''}">
-            <div class="admin-card-head simple">
-                <div>
-                    <h4>${escapeHTML(r.companyName)}</h4>
-                    <div class="review-top">${starsHTML(r.rating)}<span class="review-rec ${r.recommend ? 'yes' : 'no'}">${icon('thumb')}${r.recommend ? 'แนะนำ' : 'ไม่แนะนำ'}</span>${pending ? '<span class="status-badge status-upcoming">รอตรวจ</span>' : ''}</div>
-                </div>
-                <span class="admin-date">${formatDateTime(r.createdAt)}</span>
-            </div>
-            ${meta ? `<p class="review-meta">${meta}</p>` : ''}
-            <p class="review-text">${escapeHTML(r.text)}</p>
-            ${interview}
-            <div class="admin-card-actions">
-                ${pending ? `<button class="btn-approve" onclick="approveReview('${id}')">${icon('check')}อนุมัติ</button>` : ''}
-                <button class="btn-del" onclick="deleteReview('${id}')">${icon('trash')}ลบ</button>
-            </div>
-        </article>`;
-}
-
-function reportCardHTML(p) {
-    const id = escapeHTML(p.id);
-    const exists = companiesCache.some(c => c.id === p.companyId);
-    return `
-        <article class="admin-card">
-            <div class="admin-card-head simple">
-                <div><h4>${escapeHTML(p.companyName || '-')}</h4></div>
-                <span class="admin-date">${formatDateTime(p.createdAt)}</span>
-            </div>
-            <p class="review-text">${icon('flag')} ${escapeHTML(p.message)}</p>
-            <div class="admin-card-actions">
-                ${exists ? `<button class="btn-edit" onclick="openEditModal('${escapeHTML(p.companyId)}')">${icon('pencil')}แก้ไขบริษัท</button>` : ''}
-                <button class="btn-approve" onclick="resolveReport('${id}')">${icon('check')}จัดการแล้ว</button>
-            </div>
-        </article>`;
-}
+        document.getElementById('pendingSection').classList.toggle('hidden', activeTab !== 'pending');
+        document.getElementById('approvedSection').classList.toggle('hidden', activeTab !== 'approved');
+        document.getElementById('reviewsSection').classList.toggle('hidden', activeTab !== 'reviews');
+        document.getElementById('reportsSection').classList.toggle('hidden', activeTab !== 'reports');
+    });
+});
 
 // ---------------------------------------------------------------------------
-// ตารางบริษัททั้งหมด
+// Render Companies (Pending & Approved)
 // ---------------------------------------------------------------------------
-function renderTable() {
-    const tbody = document.getElementById('companyTableBody');
-    const q = document.getElementById('adminSearch').value.trim().toLowerCase();
-    const list = companiesCache.filter(c => !q || String(c.name).toLowerCase().includes(q));
+function findDuplicateTargets(pendingItem) {
+    const norm = String(pendingItem.name || '').trim().toLowerCase();
+    if (!norm) return [];
+    return companiesCache.filter(c =>
+        c.status === 'approved' &&
+        c.id !== pendingItem.id &&
+        (String(c.name || '').trim().toLowerCase() === norm ||
+         String(c.name || '').trim().toLowerCase().includes(norm) ||
+         norm.includes(String(c.name || '').trim().toLowerCase()))
+    );
+}
 
-    if (list.length === 0) {
-        tbody.innerHTML = `<tr><td class="admin-empty" colspan="5">${q ? 'ไม่พบบริษัทที่ค้นหา' : 'ยังไม่มีข้อมูลบริษัท'}</td></tr>`;
+function renderPendingCompanies(list) {
+    const grid = document.getElementById('pendingList');
+    if (!list.length) {
+        grid.innerHTML = `
+            <div class="memo-state empty-box">
+                <img src="assets/character/happy.webp" alt="" width="240" height="280">
+                <p>ไม่มีบริษัทที่รออนุมัติในขณะนี้</p>
+            </div>`;
         return;
     }
 
-    tbody.innerHTML = list.map(c => `
-        <tr>
-            <td class="cell-break td-name" data-label="ชื่อบริษัท">${escapeHTML(c.name)}${c.status === 'pending' ? ' <span class="status-badge status-upcoming">รออนุมัติ</span>' : ''}</td>
-            <td data-label="ประเภท"><span class="sector-tag ${SECTOR_CLASS[c.sector] || ''}">${escapeHTML(c.sector)}</span></td>
-            <td class="cell-break" data-label="สถานที่">${escapeHTML(c.loc)}</td>
-            <td class="cell-break" data-label="ติดต่อ">${contactHTML(c.contact)}</td>
-            <td class="td-actions">
-                <button class="btn-edit" onclick="openEditModal('${escapeHTML(c.id)}')">${icon('pencil')}แก้ไข</button>
-                <button class="btn-del" onclick="deleteCompany('${escapeHTML(c.id)}')">${icon('trash')}ลบ</button>
-            </td>
-        </tr>`).join('');
+    grid.innerHTML = list.map(c => {
+        const dupTargets = findDuplicateTargets(c);
+        const dupAlertHTML = dupTargets.length ? `
+            <div class="dup-merge-box">
+                <p>⚠️ พบชื่อใกล้เคียงในระบบแล้ว: <strong>${escapeHTML(dupTargets[0].name)}</strong></p>
+                <div class="merge-controls">
+                    <input type="text" id="mergeLabel_${escapeHTML(c.id)}" placeholder="ชื่อหัวข้อ Section (เช่น รอบสหกิจ, ประกาศเพิ่ม)" value="${escapeHTML(c.sourceLabel || '')}">
+                    <button type="button" class="btn-merge" onclick="mergeCompany('${escapeHTML(dupTargets[0].id)}', '${escapeHTML(c.id)}')">รวมเป็นอีก Section</button>
+                </div>
+            </div>` : '';
+
+        return `
+            <div class="admin-card pending-card">
+                <div class="card-header">
+                    <span class="badge-sector">${escapeHTML(c.sector || 'เอกชน')}</span>
+                    ${statusBadgeHTML(c)}
+                </div>
+                <h3>${escapeHTML(c.name)}</h3>
+                <p class="card-meta"><strong>สถานที่:</strong> ${escapeHTML(c.loc || '-')}</p>
+                <p class="card-meta"><strong>ตำแหน่ง:</strong> ${escapeHTML(c.pos || (c.tags || []).filter(t => POSITION_TAGS.includes(t)).join(', ') || '-')}</p>
+                <p class="card-meta"><strong>ค่าตอบแทน:</strong> ${escapeHTML(c.pay || '-')}</p>
+                <p class="card-meta"><strong>รับสมัคร:</strong> ${escapeHTML(c.time || '-')}</p>
+                ${c.desc ? `<p class="card-desc-admin">${escapeHTML(c.desc)}</p>` : ''}
+                ${dupAlertHTML}
+                <div class="card-actions">
+                    <button type="button" class="btn-approve" onclick="approveCompany('${escapeHTML(c.id)}')">อนุมัติขึ้นเว็บ</button>
+                    <button type="button" class="btn-edit" onclick="openEditModal('${escapeHTML(c.id)}')">แก้ไขก่อน</button>
+                    <button type="button" class="btn-delete" onclick="deleteCompany('${escapeHTML(c.id)}', '${escapeHTML(c.name)}')">ลบทิ้ง</button>
+                </div>
+            </div>`;
+    }).join('');
 }
 
-document.getElementById('adminSearch').addEventListener('input', renderTable);
+function renderApprovedCompanies(list) {
+    const grid = document.getElementById('approvedList');
+    if (!list.length) {
+        grid.innerHTML = `
+            <div class="memo-state empty-box">
+                <img src="assets/character/confused-404.webp" alt="" width="240" height="280">
+                <p>ไม่พบบริษัทที่ตรงกับคำค้นหา</p>
+            </div>`;
+        return;
+    }
+
+    grid.innerHTML = list.map(c => {
+        const secCount = Array.isArray(c.sections) ? c.sections.length : 0;
+        return `
+            <div class="admin-card">
+                <div class="card-header">
+                    <span class="badge-sector">${escapeHTML(c.sector || 'เอกชน')}</span>
+                    ${statusBadgeHTML(c)}
+                    ${secCount > 1 ? `<span class="status-badge status-note">${secCount} Sections</span>` : ''}
+                </div>
+                <h3>${escapeHTML(c.name)}</h3>
+                <p class="card-meta"><strong>สถานที่:</strong> ${escapeHTML(c.loc || '-')}</p>
+                <p class="card-meta"><strong>ค่าตอบแทน:</strong> ${escapeHTML(c.pay || '-')}</p>
+                <p class="card-meta"><strong>รับสมัคร:</strong> ${escapeHTML(c.time || '-')}</p>
+                <div class="card-actions">
+                    <button type="button" class="btn-edit" onclick="openEditModal('${escapeHTML(c.id)}')">แก้ไขข้อมูล</button>
+                    <button type="button" class="btn-delete" onclick="deleteCompany('${escapeHTML(c.id)}', '${escapeHTML(c.name)}')">ลบ</button>
+                </div>
+            </div>`;
+    }).join('');
+}
 
 // ---------------------------------------------------------------------------
-// Actions
+// Render Reviews & Reports
 // ---------------------------------------------------------------------------
-async function runAction(url, method, okMessage) {
+function renderPendingReviews(list) {
+    const grid = document.getElementById('reviewsList');
+    if (!list.length) {
+        grid.innerHTML = `
+            <div class="memo-state empty-box">
+                <img src="assets/character/happy.webp" alt="" width="240" height="280">
+                <p>ไม่มีรีวิวที่รอตรวจสอบ</p>
+            </div>`;
+        return;
+    }
+
+    grid.innerHTML = list.map(r => {
+        const dateStr = r.createdAt ? formatThaiDate(new Date(r.createdAt), true) : '';
+        return `
+            <div class="admin-card">
+                <div class="card-header">
+                    <span class="badge-sector">${'★'.repeat(r.rating || 5)}</span>
+                    <span class="meta-date">${escapeHTML(dateStr)}</span>
+                </div>
+                <h3>${escapeHTML(r.companyName || r.companyId)}</h3>
+                <p class="card-meta">${escapeHTML([r.year ? `ปี ${r.year}` : '', r.role, r.workMode, r.pay].filter(Boolean).join(' · ') || 'ไม่ระบุรายละเอียดเสริม')}</p>
+                <p class="review-body-text">${escapeHTML(r.text)}</p>
+                ${r.interviewQuestions ? `<p class="card-meta"><strong>สัมภาษณ์:</strong> ${escapeHTML(r.interviewQuestions)}</p>` : ''}
+                <div class="card-actions">
+                    <button type="button" class="btn-approve" onclick="approveReview('${escapeHTML(r.id)}')">อนุมัติรีวิว</button>
+                    <button type="button" class="btn-delete" onclick="deleteReview('${escapeHTML(r.id)}')">ลบทิ้ง</button>
+                </div>
+            </div>`;
+    }).join('');
+}
+
+function renderReports(list) {
+    const grid = document.getElementById('reportsList');
+    if (!grid) return;
+    if (!list.length) {
+        grid.innerHTML = `
+            <div class="memo-state empty-box">
+                <img src="assets/character/happy.webp" alt="" width="240" height="280">
+                <p>ยังไม่มีการแจ้งข้อมูลผิด</p>
+            </div>`;
+        return;
+    }
+
+    grid.innerHTML = list.map(r => {
+        const dateStr = r.createdAt ? formatThaiDate(new Date(r.createdAt), true) : '';
+        const secBadge = r.sectionLabel
+            ? `<span class="status-badge status-open">${escapeHTML(r.sectionLabel)}</span>`
+            : `<span class="status-badge status-note">ไม่ระบุ Section (แอดมินเลือกเอง)</span>`;
+        return `
+            <div class="admin-card">
+                <div class="card-header">
+                    <span class="badge-sector">แจ้งข้อมูลผิด</span>
+                    ${secBadge}
+                    <span class="meta-date">${escapeHTML(dateStr)}</span>
+                </div>
+                <h3>${escapeHTML(r.companyName || r.companyId)}</h3>
+                <p class="review-body-text">${escapeHTML(r.message)}</p>
+                <div class="card-actions">
+                    <button type="button" class="btn-edit" onclick="openEditModal('${escapeHTML(r.companyId)}')">ไปแก้ไขบริษัท</button>
+                    <button type="button" class="btn-delete" onclick="dismissReport('${escapeHTML(r.id)}')">ลบแจ้งเตือนนี้</button>
+                </div>
+            </div>`;
+    }).join('');
+}
+
+// ---------------------------------------------------------------------------
+// Admin Actions (Approve, Merge, Delete)
+// ---------------------------------------------------------------------------
+async function approveCompany(id) {
     try {
-        const res = await authFetch(url, { method });
-        const result = await res.json();
-        if (result.success) {
-            showToast(okMessage, 'happy');
-            await loadData();
+        const res = await authFetch(`${API_URL}/companies/${encodeURIComponent(id)}/approve`, { method: 'PATCH' });
+        const data = await res.json();
+        if (data.success) {
+            showToast('อนุมัติบริษัทขึ้นเว็บแล้ว!', 'happy');
+            loadData();
         } else {
-            showToast(result.message || 'ทำรายการไม่สำเร็จ', 'error');
+            showToast(data.message || 'อนุมัติไม่สำเร็จ', 'error');
         }
     } catch (err) {
-        if (err.message !== 'unauthorized') showToast('ไม่สามารถเชื่อมต่อ Server ได้', 'error');
+        if (err.message !== 'unauthorized') showToast('เชื่อมต่อ Server ไม่ได้', 'error');
     }
 }
 
-function approveCompany(id) {
-    runAction(`${API_URL}/companies/${encodeURIComponent(id)}/approve`, 'POST', 'อนุมัติแล้ว ขึ้นเว็บเรียบร้อย');
-}
-
-function deleteCompany(id) {
-    const c = companiesCache.find(x => x.id === id);
-    if (confirm(`ลบ "${c ? c.name : 'บริษัทนี้'}" และรีวิวทั้งหมดของบริษัทนี้?`)) {
-        runAction(`${API_URL}/companies/${encodeURIComponent(id)}`, 'DELETE', 'ลบข้อมูลแล้ว');
+async function mergeCompany(targetId, sourceId) {
+    const labelInput = document.getElementById(`mergeLabel_${sourceId}`);
+    const sourceLabel = labelInput ? labelInput.value.trim() : '';
+    try {
+        const res = await authFetch(`${API_URL}/admin/companies/${encodeURIComponent(targetId)}/merge/${encodeURIComponent(sourceId)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sourceLabel })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast('รวมข้อมูลเป็น Section ใหม่เรียบร้อย!', 'happy');
+            loadData();
+        } else {
+            showToast(data.message || 'รวมข้อมูลไม่สำเร็จ', 'error');
+        }
+    } catch (err) {
+        if (err.message !== 'unauthorized') showToast('เชื่อมต่อ Server ไม่ได้', 'error');
     }
 }
 
-function approveReview(id) {
-    runAction(`${API_URL}/reviews/${encodeURIComponent(id)}/approve`, 'POST', 'อนุมัติรีวิวแล้ว');
+async function deleteCompany(id, name) {
+    if (!confirm(`ยืนยันลบบริษัท "${name}" ออกจากระบบถาวร?`)) return;
+    try {
+        const res = await authFetch(`${API_URL}/companies/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+            showToast('ลบบริษัทเรียบร้อยแล้ว');
+            loadData();
+        } else {
+            showToast(data.message || 'ลบไม่สำเร็จ', 'error');
+        }
+    } catch (err) {
+        if (err.message !== 'unauthorized') showToast('เชื่อมต่อ Server ไม่ได้', 'error');
+    }
 }
 
-function deleteReview(id) {
-    if (confirm('ลบรีวิวนี้?')) runAction(`${API_URL}/reviews/${encodeURIComponent(id)}`, 'DELETE', 'ลบรีวิวแล้ว');
+async function approveReview(id) {
+    try {
+        const res = await authFetch(`${API_URL}/admin/reviews/${encodeURIComponent(id)}/approve`, { method: 'PATCH' });
+        const data = await res.json();
+        if (data.success) {
+            showToast('อนุมัติรีวิวแล้ว!', 'happy');
+            loadData();
+        }
+    } catch (err) {
+        if (err.message !== 'unauthorized') showToast('เชื่อมต่อ Server ไม่ได้', 'error');
+    }
 }
 
-function resolveReport(id) {
-    runAction(`${API_URL}/reports/${encodeURIComponent(id)}`, 'DELETE', 'เคลียร์รายการแล้ว');
+async function deleteReview(id) {
+    if (!confirm('ยืนยันลบรีวิวนี้?')) return;
+    try {
+        const res = await authFetch(`${API_URL}/admin/reviews/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+            showToast('ลบรีวิวเรียบร้อย');
+            loadData();
+        }
+    } catch (err) {
+        if (err.message !== 'unauthorized') showToast('เชื่อมต่อ Server ไม่ได้', 'error');
+    }
+}
+
+async function dismissReport(id) {
+    try {
+        const res = await authFetch(`${API_URL}/admin/reports/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+            showToast('ลบแจ้งเตือนเรียบร้อย');
+            loadData();
+        }
+    } catch (err) {
+        if (err.message !== 'unauthorized') showToast('เชื่อมต่อ Server ไม่ได้', 'error');
+    }
 }
 
 // ---------------------------------------------------------------------------
-// Edit modal (รองรับการเลือกแก้ราย Section + ไม่มีกำหนดปิดรับสมัคร)
+// Edit Modal (รองรับการเลือกแก้ราย Section + ไม่มีกำหนดปิดรับสมัคร)
 // ---------------------------------------------------------------------------
 document.getElementById('editTagHint').textContent = 'Tag ที่ใช้กรองได้: ' + [...WORKMODE_TAGS, 'มีค่าตอบแทน', ...OTHER_TAGS].join(', ') + ' (ตำแหน่งงานกับรถไฟฟ้าเลือกจากปุ่มด้านบน)';
 
@@ -460,7 +565,6 @@ document.getElementById('editForm').addEventListener('submit', async (e) => {
         stations: editStationPicker.get()
     };
 
-    // อัปเดตเข้าไปใน array sections ของบริษัท
     const currentSections = (Array.isArray(editingCompany.sections) && editingCompany.sections.length > 0)
         ? [...editingCompany.sections]
         : [{ ...editingCompany }];
@@ -469,11 +573,8 @@ document.getElementById('editForm').addEventListener('submit', async (e) => {
         ...updatedSectionData
     };
 
-    // รวม tags และ stations ของทุก section ไว้ที่ระดับบน เพื่อให้ค้นหาและกรองหน้าแรกเจอครบ
     const allTags = [...new Set([sector, ...currentSections.flatMap(s => s.tags || [])])];
     const allStations = [...new Set(currentSections.flatMap(s => s.stations || []))];
-
-    // ใช้ข้อมูลของ Section แรกเป็นข้อมูลหลักระดับบนของบริษัท
     const primarySec = currentSections[0];
 
     const payload = {
@@ -516,228 +617,4 @@ document.getElementById('editForm').addEventListener('submit', async (e) => {
 // ---------------------------------------------------------------------------
 // Start
 // ---------------------------------------------------------------------------
-if (getToken()) {
-    showPanel();
-}
-
-
-// ===========================================================================
-// นำเข้าบริษัทจากไฟล์ CSV
-// คอลัมน์: name, sector, location, description, contact, positions, position_note,
-//          workmode, tags, pay, start_date, end_date, time_note, stations, source, check_note
-// time_note = ข้อความสั้นๆ เมื่อไม่มีวันที่ เช่น "ปัจจุบันยังไม่เปิดรับ" หรือ "เปิดรับตามรอบ ดูประกาศที่เว็บ"
-// ค่าที่มีหลายอันให้คั่นด้วย ; เช่น positions = "Frontend Developer;Data Analyst"
-// stations = "BTS สายสุขุมวิท:อโศก;MRT สายสีน้ำเงิน:สุขุมวิท"
-// ===========================================================================
-const IMPORT_COLUMNS = ['name', 'sector', 'location', 'description', 'contact', 'positions', 'position_note', 'workmode', 'tags', 'pay', 'start_date', 'end_date', 'time_note', 'stations', 'source', 'check_note'];
-let importRows = [];
-
-function parseCSV(text) {
-    const rows = [];
-    let row = [], field = '', inQuotes = false;
-    text = text.replace(/^﻿/, '');
-    for (let i = 0; i < text.length; i++) {
-        const ch = text[i];
-        if (inQuotes) {
-            if (ch === '"') {
-                if (text[i + 1] === '"') { field += '"'; i++; } else inQuotes = false;
-            } else field += ch;
-        } else if (ch === '"') inQuotes = true;
-        else if (ch === ',') { row.push(field); field = ''; }
-        else if (ch === '\n' || ch === '\r') {
-            if (ch === '\r' && text[i + 1] === '\n') i++;
-            row.push(field); rows.push(row); row = []; field = '';
-        } else field += ch;
-    }
-    if (field !== '' || row.length) { row.push(field); rows.push(row); }
-    return rows.filter(r => r.some(c => String(c).trim() !== ''));
-}
-
-const splitList = (v) => String(v || '').split(/[;\n]/).map(x => x.trim()).filter(Boolean);
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-
-// แปลงชื่อสถานี "BTS สายสุขุมวิท:อโศก" → "bts-sukhumvit:อโศก"
-function toStationValue(text) {
-    const [lineText, station] = String(text).split(':').map(x => (x || '').trim());
-    if (!station) return null;
-    const line = LINE_BY_ID[lineText] || TRANSIT_LINES.find(l => l.name === lineText || l.short === lineText);
-    return line && line.stations.includes(station) ? `${line.id}:${station}` : null;
-}
-
-function rowToCompany(obj) {
-    const warnings = [];
-    const sector = ['ภาครัฐ', 'เอกชน', 'รัฐวิสาหกิจ'].includes(obj.sector) ? obj.sector : 'เอกชน';
-    if (obj.sector && sector !== obj.sector) warnings.push(`ประเภท "${obj.sector}" ไม่รู้จัก ใช้ "เอกชน" แทน`);
-
-    const positions = normalizeTags(splitList(obj.positions));
-    const unknownPos = positions.filter(p => !POSITION_TAGS.includes(p));
-    if (unknownPos.length) warnings.push(`ตำแหน่งที่ไม่มีในรายการ: ${unknownPos.join(', ')} (ย้ายไปไว้ในข้อความแทน)`);
-
-    const stationValues = [];
-    splitList(obj.stations).forEach(st => {
-        const v = toStationValue(st);
-        if (v) stationValues.push(v); else warnings.push(`ไม่รู้จักสถานี "${st}"`);
-    });
-
-    const start = ISO_DATE.test(obj.start_date || '') ? obj.start_date : '';
-    const end = ISO_DATE.test(obj.end_date || '') ? obj.end_date : '';
-    if ((obj.start_date && !start) || (obj.end_date && !end)) warnings.push('วันที่ต้องเป็นรูปแบบ ปปปป-ดด-วว เช่น 2027-01-31');
-
-    const pay = (obj.pay || '').trim();
-    const tags = [sector, ...positions.filter(p => POSITION_TAGS.includes(p)), ...splitList(obj.workmode), ...splitList(obj.tags)];
-    if (pay && !['-', 'ไม่มี', 'ไม่มีค่าตอบแทน'].includes(pay)) tags.push('มีค่าตอบแทน');
-
-    const posText = [obj.position_note, unknownPos.join(', ')].filter(Boolean).join(', ');
-    return {
-        company: {
-            name: (obj.name || '').trim(),
-            sector,
-            loc: (obj.location || '').trim(),
-            desc: (obj.description || '').trim(),
-            contact: (obj.contact || '').trim(),
-            pos: posText,
-            pay: pay || '-',
-            timeStart: start,
-            timeEnd: end,
-            time: start && end ? `${start} ถึง ${end}` : (end ? `ถึง ${end}` : ((obj.time_note || '').trim() || '-')),
-            tags: [...new Set(tags)],
-            stations: stationValues
-        },
-        warnings
-    };
-}
-
-function renderImportPreview(fileName) {
-    const box = document.getElementById('importPreview');
-    const existing = new Set(companiesCache.map(c => normalizeName(c.name)));
-    const seen = new Set();
-    let ready = 0;
-    const items = importRows.map(r => {
-        const key = normalizeName(r.company.name);
-        let state = 'ok';
-        if (!r.company.name) state = 'empty';
-        else if (existing.has(key) || seen.has(key)) state = 'dup';
-        seen.add(key);
-        if (state === 'ok') ready++;
-        return { ...r, state };
-    });
-
-    const badge = { ok: '<span class="status-badge status-open">พร้อมนำเข้า</span>', dup: '<span class="status-badge status-closed">มีอยู่แล้ว · ข้าม</span>', empty: '<span class="status-badge status-closing">ไม่มีชื่อ · ข้าม</span>' };
-    box.innerHTML = `
-        <p class="import-summary"><b>${escapeHTML(fileName)}</b> · ทั้งหมด ${items.length} แถว · พร้อมนำเข้า <b>${ready}</b> · ข้าม ${items.length - ready}</p>
-        <div class="import-list">
-            ${items.map(r => `
-                <div class="import-row ${r.state}">
-                    <div class="import-row-head"><b>${escapeHTML(r.company.name || '(ไม่มีชื่อ)')}</b>${badge[r.state]}</div>
-                    <p>${escapeHTML(r.company.sector)} · ${escapeHTML(r.company.loc || 'ไม่มีที่อยู่')} · ตำแหน่ง ${r.company.tags.filter(t => POSITION_TAGS.includes(t)).length} · สถานี ${r.company.stations.length}</p>
-                    ${r.warnings.length ? `<p class="import-warn">${r.warnings.map(escapeHTML).join('<br>')}</p>` : ''}
-                </div>`).join('')}
-        </div>`;
-    box.classList.remove('hidden');
-    document.getElementById('importStatusBox').classList.toggle('hidden', !ready);
-    const btn = document.getElementById('btnDoImport');
-    btn.disabled = !ready;
-    btn.textContent = ready ? `นำเข้า ${ready} บริษัท` : 'ไม่มีแถวที่นำเข้าได้';
-}
-
-document.getElementById('btnOpenImport').addEventListener('click', () => {
-    importRows = [];
-    document.getElementById('importFile').value = '';
-    document.getElementById('importFileLabel').textContent = 'กดเพื่อเลือกไฟล์ .csv';
-    document.getElementById('importPreview').classList.add('hidden');
-    document.getElementById('importStatusBox').classList.add('hidden');
-    const btn = document.getElementById('btnDoImport');
-    btn.disabled = true;
-    btn.textContent = 'นำเข้า';
-    openModal('importModal');
-});
-
-document.getElementById('btnTemplate').addEventListener('click', (e) => {
-    e.preventDefault();
-    const example = ['ตัวอย่าง บริษัท เอบีซี จำกัด', 'เอกชน', 'ถนนสุขุมวิท เขตวัฒนา กรุงเทพฯ', 'บริษัทพัฒนาซอฟต์แวร์', 'https://example.com/careers', 'Frontend Developer;Data Analyst', 'ผู้ช่วยนักพัฒนาเว็บ', 'Hybrid', 'ภาคกลาง', '10,000 บาท/เดือน', '2027-01-05', '2027-02-28', '', 'BTS สายสุขุมวิท:อโศก', '', 'แถวตัวอย่าง ลบทิ้งก่อนนำเข้า'];
-    const esc = (v) => /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
-    const csv = '﻿' + [IMPORT_COLUMNS, example].map(r => r.map(esc).join(',')).join('\r\n');
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-    a.download = 'import-template.csv';
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-});
-
-document.getElementById('importFile').addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    document.getElementById('importFileLabel').textContent = file.name;
-    const rows = parseCSV(await file.text());
-    if (rows.length < 2) return showToast('ไฟล์ไม่มีข้อมูล หรือไม่ใช่ CSV', 'error');
-    const header = rows[0].map(h => h.trim().toLowerCase());
-    if (!header.includes('name')) return showToast('ไม่เจอคอลัมน์ name ลองใช้แบบฟอร์มของเว็บนะ', 'error');
-    importRows = rows.slice(1).map(r => rowToCompany(Object.fromEntries(header.map((h, i) => [h, (r[i] || '').trim()]))));
-    renderImportPreview(file.name);
-});
-
-document.getElementById('btnDoImport').addEventListener('click', async () => {
-    const btn = document.getElementById('btnDoImport');
-    const status = (document.querySelector('input[name="importStatus"]:checked') || {}).value || 'pending';
-    if (status === 'approved' && !confirm('บริษัททั้งหมดจะขึ้นเว็บทันที แน่ใจไหม?')) return;
-    btn.disabled = true;
-    btn.textContent = 'กำลังนำเข้า...';
-    try {
-        const res = await authFetch(`${API_URL}/admin/import`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status, companies: importRows.map(r => r.company).filter(c => c.name) })
-        });
-        const result = await res.json();
-        if (!result.success) throw new Error(result.message || 'import failed');
-        closeModal('importModal');
-        showToast(`นำเข้าแล้ว ${result.added} บริษัท${result.skipped.length ? ` · ข้าม ${result.skipped.length}` : ''}`, 'happy');
-        await loadData();
-        setTab(status === 'pending' ? 'pending' : 'companies');
-    } catch (err) {
-        if (err.message !== 'unauthorized') showToast('นำเข้าไม่สำเร็จ ลองใหม่อีกครั้งนะ', 'error');
-        btn.disabled = false;
-        btn.textContent = 'ลองอีกครั้ง';
-    }
-});
-
-
-// ลบบริษัทที่รออนุมัติทั้งหมด (บริษัทที่อนุมัติแล้วไม่โดนลบ)
-document.getElementById('btnDeletePending').addEventListener('click', async () => {
-    const count = companiesCache.filter(c => c.status === 'pending').length;
-    if (!count) return;
-    if (!confirm(`ลบบริษัทที่ "รออนุมัติ" ทั้งหมด ${count} บริษัท?\n(รวมบริษัทที่นักศึกษาส่งเข้ามาด้วย และกู้คืนไม่ได้)`)) return;
-    const btn = document.getElementById('btnDeletePending');
-    btn.disabled = true;
-    try {
-        const res = await authFetch(`${API_URL}/admin/companies/delete-pending`, { method: 'POST' });
-        const result = await res.json();
-        if (!result.success) throw new Error(result.message || 'delete failed');
-        showToast(`ลบแล้ว ${result.deleted} บริษัท`, 'happy');
-        await loadData();
-    } catch (err) {
-        if (err.message !== 'unauthorized') showToast('ลบไม่สำเร็จ ลองใหม่อีกครั้งนะ', 'error');
-    } finally {
-        btn.disabled = false;
-    }
-});
-
-// อนุมัติบริษัทที่รออนุมัติทั้งหมด (ขึ้นเว็บทันที)
-document.getElementById('btnApproveAll').addEventListener('click', async () => {
-    const count = companiesCache.filter(c => c.status === 'pending').length;
-    if (!count) return;
-    if (!confirm(`อนุมัติบริษัทที่รออนุมัติทั้งหมด ${count} บริษัท?\nทุกบริษัทจะขึ้นเว็บทันที (รวมที่นักศึกษาส่งเข้ามาด้วย)`)) return;
-    const btn = document.getElementById('btnApproveAll');
-    btn.disabled = true;
-    try {
-        const res = await authFetch(`${API_URL}/admin/companies/approve-all`, { method: 'POST' });
-        const result = await res.json();
-        if (!result.success) throw new Error(result.message || 'approve failed');
-        showToast(`อนุมัติแล้ว ${result.approved} บริษัท`, 'happy');
-        await loadData();
-    } catch (err) {
-        if (err.message !== 'unauthorized') showToast('อนุมัติไม่สำเร็จ ลองใหม่อีกครั้งนะ', 'error');
-    } finally {
-        btn.disabled = false;
-    }
-});
+initAdmin();
