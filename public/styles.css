@@ -3128,3 +3128,16 @@ html.reduce-motion { scroll-behavior: auto; }
     font-size: .78rem;
     font-weight: 600;
 }
+
+/* กล่องเลือก Section ในหน้าแก้ไขของ Admin */
+.edit-section-box {
+    padding: var(--sp-3);
+    margin: var(--sp-2) 0;
+    border-radius: var(--r-ctl);
+    background: var(--teal-soft);
+    border: 1.5px solid var(--teal-tint);
+}
+.edit-section-box label {
+    margin-top: 0 !important;
+    color: var(--teal);
+}

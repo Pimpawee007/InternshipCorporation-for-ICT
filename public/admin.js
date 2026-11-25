@@ -325,74 +325,173 @@ function resolveReport(id) {
 }
 
 // ---------------------------------------------------------------------------
-// Edit modal
+// Edit modal (รองรับการเลือกแก้ราย Section + ไม่มีกำหนดปิดรับสมัคร)
 // ---------------------------------------------------------------------------
 document.getElementById('editTagHint').textContent = 'Tag ที่ใช้กรองได้: ' + [...WORKMODE_TAGS, 'มีค่าตอบแทน', ...OTHER_TAGS].join(', ') + ' (ตำแหน่งงานกับรถไฟฟ้าเลือกจากปุ่มด้านบน)';
 
 const editStationPicker = createStationPicker(document.getElementById('editStations'), { max: 6 });
 const editPositionPicker = createPositionPicker(document.getElementById('editPositions'));
 
+let editingCompany = null;
+let editingSectionIndex = 0;
+
+const editNoDeadlineEl = document.getElementById('editNoDeadline');
+const editTimeEndEl = document.getElementById('editTimeEnd');
+const editTimeTextEl = document.getElementById('editTime');
+
+editNoDeadlineEl.addEventListener('change', function () {
+    if (this.checked) {
+        editTimeEndEl.value = '';
+        editTimeEndEl.disabled = true;
+        editTimeTextEl.value = '';
+        editTimeTextEl.disabled = true;
+    } else {
+        editTimeEndEl.disabled = false;
+        editTimeTextEl.disabled = false;
+    }
+});
+
+function fillEditSectionFields(sec) {
+    const { start, end } = companyDates(sec);
+    const iso = (d) => d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : '';
+
+    document.getElementById('editSourceLabel').value = sec.sourceLabel || '';
+    document.getElementById('editLoc').value = sec.loc || '';
+    document.getElementById('editDesc').value = sec.desc || '';
+    document.getElementById('editPay').value = sec.pay || '';
+    document.getElementById('editPos').value = sec.pos || '';
+    document.getElementById('editTimeStart').value = iso(start);
+    document.getElementById('editTimeEnd').value = iso(end);
+
+    const isNoDeadline = sec.time === 'ไม่มีกำหนดปิดรับสมัคร';
+    editNoDeadlineEl.checked = isNoDeadline;
+    editTimeEndEl.disabled = isNoDeadline;
+    editTimeTextEl.disabled = isNoDeadline;
+    editTimeTextEl.value = (end || isNoDeadline) ? '' : (sec.time && sec.time !== '-' ? sec.time : '');
+
+    document.getElementById('editContact').value = sec.contact || '';
+    document.getElementById('editTags').value = (sec.tags || [])
+        .filter(t => !TRANSIT_TAGS.includes(t) && !POSITION_TAGS.includes(t) && !['เอกชน', 'ภาครัฐ', 'รัฐวิสาหกิจ'].includes(t))
+        .join(', ');
+
+    editStationPicker.set(sec.stations || []);
+    const chosen = (sec.tags || []).filter(t => POSITION_TAGS.includes(t));
+    const guessed = chosen.length ? [] : inferPositions(sec.pos);
+    editPositionPicker.set(chosen.length ? chosen : guessed);
+
+    const hint = document.getElementById('editPosHint');
+    hint.classList.toggle('hidden', !guessed.length);
+    hint.textContent = guessed.length ? 'Memo เลือกตำแหน่งให้จากข้อความด้านล่างแล้ว ตรวจดูก่อนกดบันทึกนะ' : '';
+}
+
+document.getElementById('editSectionSelect').addEventListener('change', (e) => {
+    if (!editingCompany) return;
+    editingSectionIndex = Number(e.target.value) || 0;
+    const sections = (Array.isArray(editingCompany.sections) && editingCompany.sections.length > 0)
+        ? editingCompany.sections
+        : [editingCompany];
+    fillEditSectionFields(sections[editingSectionIndex] || sections[0]);
+});
+
 function openEditModal(id) {
     const data = companiesCache.find(c => c.id === id);
     if (!data) return;
 
-    const { start, end } = companyDates(data);
-    const iso = (d) => d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : '';
+    editingCompany = data;
+    editingSectionIndex = 0;
 
     document.getElementById('editId').value = data.id;
     document.getElementById('editStatus').value = data.status === 'pending' ? 'pending' : 'approved';
     document.getElementById('editName').value = data.name || '';
-    document.getElementById('editLoc').value = data.loc || '';
     document.getElementById('editSector').value = data.sector || 'เอกชน';
-    document.getElementById('editDesc').value = data.desc || '';
-    document.getElementById('editPay').value = data.pay || '';
-    document.getElementById('editPos').value = data.pos || '';
-    document.getElementById('editTimeStart').value = iso(start);
-    document.getElementById('editTimeEnd').value = iso(end);
-    document.getElementById('editTime').value = end ? '' : (data.time && data.time !== '-' ? data.time : '');
-    document.getElementById('editContact').value = data.contact || '';
-    document.getElementById('editTags').value = (data.tags || []).filter(t => !TRANSIT_TAGS.includes(t) && !POSITION_TAGS.includes(t)).join(', ');
-    editStationPicker.set(data.stations || []);
-    const chosen = (data.tags || []).filter(t => POSITION_TAGS.includes(t));
-    const guessed = chosen.length ? [] : inferPositions(data.pos);
-    editPositionPicker.set(chosen.length ? chosen : guessed);
-    const hint = document.getElementById('editPosHint');
-    hint.classList.toggle('hidden', !guessed.length);
-    hint.textContent = guessed.length ? 'Memo เลือกตำแหน่งให้จากข้อความด้านล่างแล้ว ตรวจดูก่อนกดบันทึกนะ' : '';
 
+    const sections = (Array.isArray(data.sections) && data.sections.length > 0) ? data.sections : [data];
+    const sectionBox = document.getElementById('editSectionBox');
+    const sectionSelect = document.getElementById('editSectionSelect');
+
+    if (sections.length > 1) {
+        sectionBox.classList.remove('hidden');
+        sectionSelect.innerHTML = sections.map((s, idx) =>
+            `<option value="${idx}">Section ${idx + 1}: ${escapeHTML(s.sourceLabel || s.pos || s.loc || 'ไม่มีชื่อหัวข้อ')}</option>`
+        ).join('');
+    } else {
+        sectionBox.classList.add('hidden');
+        sectionSelect.innerHTML = '';
+    }
+
+    fillEditSectionFields(sections[0]);
     openModal('editModal');
 }
 
 function closeEditModal() {
+    editingCompany = null;
     closeModal('editModal');
 }
 
 document.getElementById('editForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (!editingCompany) return;
     const id = document.getElementById('editId').value;
 
+    const sector = document.getElementById('editSector').value;
     const rawTags = document.getElementById('editTags').value;
     const tagsArray = rawTags.split(',').map(t => t.trim()).filter(t => t.length > 0);
+    const combinedTags = [...new Set([sector, ...tagsArray, ...editPositionPicker.get()])];
 
+    const isNoDeadline = editNoDeadlineEl.checked;
     const tStart = document.getElementById('editTimeStart').value;
-    const tEnd = document.getElementById('editTimeEnd').value;
-    const timeText = document.getElementById('editTime').value.trim();
-    const time = (tStart && tEnd) ? `${tStart} ถึง ${tEnd}` : (tEnd ? `ถึง ${tEnd}` : (timeText || '-'));
+    const tEnd = isNoDeadline ? '' : editTimeEndEl.value;
+    const timeText = editTimeTextEl.value.trim();
+    const time = isNoDeadline
+        ? 'ไม่มีกำหนดปิดรับสมัคร'
+        : ((tStart && tEnd) ? `${tStart} ถึง ${tEnd}` : (tEnd ? `ถึง ${tEnd}` : (timeText || '-')));
 
-    const payload = {
-        status: document.getElementById('editStatus').value,
-        name: document.getElementById('editName').value,
-        loc: document.getElementById('editLoc').value,
-        sector: document.getElementById('editSector').value,
-        desc: document.getElementById('editDesc').value,
-        pay: document.getElementById('editPay').value,
-        pos: document.getElementById('editPos').value,
+    const updatedSectionData = {
+        sourceLabel: document.getElementById('editSourceLabel').value.trim(),
+        loc: document.getElementById('editLoc').value.trim(),
+        desc: document.getElementById('editDesc').value.trim(),
+        pay: document.getElementById('editPay').value.trim(),
+        pos: document.getElementById('editPos').value.trim(),
         time,
         timeStart: tStart,
         timeEnd: tEnd,
-        contact: document.getElementById('editContact').value,
-        tags: [...tagsArray, ...editPositionPicker.get()],
+        contact: document.getElementById('editContact').value.trim(),
+        tags: combinedTags,
         stations: editStationPicker.get()
+    };
+
+    // อัปเดตเข้าไปใน array sections ของบริษัท
+    const currentSections = (Array.isArray(editingCompany.sections) && editingCompany.sections.length > 0)
+        ? [...editingCompany.sections]
+        : [{ ...editingCompany }];
+    currentSections[editingSectionIndex] = {
+        ...currentSections[editingSectionIndex],
+        ...updatedSectionData
+    };
+
+    // รวม tags และ stations ของทุก section ไว้ที่ระดับบน เพื่อให้ค้นหาและกรองหน้าแรกเจอครบ
+    const allTags = [...new Set([sector, ...currentSections.flatMap(s => s.tags || [])])];
+    const allStations = [...new Set(currentSections.flatMap(s => s.stations || []))];
+
+    // ใช้ข้อมูลของ Section แรกเป็นข้อมูลหลักระดับบนของบริษัท
+    const primarySec = currentSections[0];
+
+    const payload = {
+        status: document.getElementById('editStatus').value,
+        name: document.getElementById('editName').value.trim(),
+        sector,
+        sourceLabel: primarySec.sourceLabel || '',
+        loc: primarySec.loc || '',
+        desc: primarySec.desc || '',
+        pay: primarySec.pay || '',
+        pos: primarySec.pos || '',
+        time: primarySec.time || '-',
+        timeStart: primarySec.timeStart || '',
+        timeEnd: primarySec.timeEnd || '',
+        contact: primarySec.contact || '',
+        tags: allTags,
+        stations: allStations,
+        sections: currentSections
     };
 
     try {

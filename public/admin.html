@@ -153,17 +153,20 @@
             <form id="editForm" class="edit-form">
                 <input type="hidden" id="editId">
 
-                <label for="editStatus">สถานะ</label>
+                <!-- ตัวเลือก Section กรณีบริษัทมีหลาย Section -->
+                <div id="editSectionBox" class="edit-section-box hidden">
+                    <label for="editSectionSelect">เลือก Section / รอบข้อมูลที่ต้องการแก้ไข</label>
+                    <select id="editSectionSelect"></select>
+                </div>
+
+                <label for="editStatus">สถานะบริษัทบนเว็บ</label>
                 <select id="editStatus">
                     <option value="approved">อนุมัติแล้ว (แสดงบนเว็บ)</option>
                     <option value="pending">รออนุมัติ (ซ่อน)</option>
                 </select>
 
-                <label for="editName">ชื่อบริษัท</label>
+                <label for="editName">ชื่อบริษัท (ใช้ร่วมกันทุก Section)</label>
                 <input type="text" id="editName" required>
-
-                <label for="editLoc">สถานที่ตั้ง</label>
-                <input type="text" id="editLoc" required>
 
                 <label for="editSector">ประเภท (Sector)</label>
                 <select id="editSector" required>
@@ -171,6 +174,14 @@
                     <option value="ภาครัฐ">ภาครัฐ</option>
                     <option value="รัฐวิสาหกิจ">รัฐวิสาหกิจ</option>
                 </select>
+
+                <div id="editSourceLabelGroup">
+                    <label for="editSourceLabel">ชื่อหัวข้อ Section / รอบที่เปิดรับ</label>
+                    <input type="text" id="editSourceLabel" placeholder="เช่น ข้อมูลหลัก, รอบสหกิจศึกษา, Job Fair 2026">
+                </div>
+
+                <label for="editLoc">สถานที่ตั้ง</label>
+                <input type="text" id="editLoc" required>
 
                 <label for="editDesc">คำอธิบายพอสังเขป</label>
                 <textarea id="editDesc" rows="3"></textarea>
@@ -195,8 +206,14 @@
                         <input type="date" id="editTimeEnd">
                     </div>
                 </div>
-                <label class="sub-label" for="editTime">หรือเขียนเป็นข้อความ (ใช้เมื่อไม่ได้ใส่วันที่)</label>
-                <input type="text" id="editTime" placeholder="เช่น รับตลอดปี">
+                <div class="chip-group mt-2">
+                    <label class="chip">
+                        <input type="checkbox" id="editNoDeadline">
+                        <span>ไม่มีกำหนดปิดรับสมัคร (เปิดรับตลอด)</span>
+                    </label>
+                </div>
+                <label class="sub-label" for="editTime">หรือเขียนเป็นข้อความ (ใช้เมื่อไม่ได้ใส่วันที่ และไม่ได้เลือกเปิดตลอด)</label>
+                <input type="text" id="editTime" placeholder="เช่น รับตลอดปี หรือ ปิดรับสมัครแล้ว">
 
                 <label for="editContact">ช่องทางติดต่อ</label>
                 <input type="text" id="editContact">

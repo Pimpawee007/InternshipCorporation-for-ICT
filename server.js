@@ -488,6 +488,46 @@ app.put('/api/companies/:id', requireAdmin, async (req, res) => {
     }
 });
 
+// แก้ไขบริษัท (รองรับการบันทึก sections ที่แก้ไขราย Section)
+app.put('/api/companies/:id', requireAdmin, async (req, res) => {
+    try {
+        const body = req.body || {};
+        const update = companyFields(body);
+        if (['approved', 'pending'].includes(body.status)) update.status = body.status;
+
+        if (Array.isArray(body.sections) && body.sections.length > 0) {
+            update.sections = body.sections.map(s => {
+                const cleaned = companyFields({ ...s, name: update.name, sector: update.sector });
+                return {
+                    id: s.id || ('sec_' + Date.now() + crypto.randomBytes(2).toString('hex')),
+                    sourceLabel: cleaned.sourceLabel,
+                    loc: cleaned.loc,
+                    desc: cleaned.desc,
+                    pay: cleaned.pay,
+                    pos: cleaned.pos,
+                    time: cleaned.time,
+                    timeStart: cleaned.timeStart,
+                    timeEnd: cleaned.timeEnd,
+                    contact: cleaned.contact,
+                    tags: cleaned.tags,
+                    stations: cleaned.stations,
+                    approvedAt: s.approvedAt || new Date()
+                };
+            });
+            // รวม tags และ stations จากทุก section ไว้ที่ระดับบนเสมอ
+            update.tags = [...new Set([update.sector, ...update.sections.flatMap(s => s.tags || [])])];
+            update.stations = [...new Set(update.sections.flatMap(s => s.stations || []))].slice(0, 12);
+        }
+
+        const updatedCompany = await Company.findOneAndUpdate({ id: req.params.id }, update, { new: true });
+        if (!updatedCompany) return res.status(404).json({ success: false, message: 'ไม่พบบริษัทนี้' });
+        res.json({ success: true, company: updatedCompany });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+});
+
 // อนุมัติบริษัท
 app.post('/api/companies/:id/approve', requireAdmin, async (req, res) => {
     try {

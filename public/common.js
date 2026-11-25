@@ -275,10 +275,20 @@ function companyDates(c) {
 }
 
 function deadlineStatus(c) {
+    const note = hasText(c.time) ? String(c.time).trim() : '';
+    const isNoDeadline = c.noDeadline === true || note === 'ไม่มีกำหนดปิดรับสมัคร';
+
+    if (isNoDeadline) {
+        const start = parseLocalDate(c.timeStart);
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        if (start && start > today) {
+            return { key: 'upcoming', label: `เปิดรับ ${formatThaiDate(start)}`, end: null };
+        }
+        return { key: 'open', label: 'เปิดรับอยู่ · ไม่มีกำหนดปิด', end: null };
+    }
+
     const { start, end } = companyDates(c);
     if (!end) {
-        // ไม่มีวันที่: ถ้ามีข้อความสั้นๆ (เช่น "ปัจจุบันยังไม่เปิดรับ") ให้โชว์ข้อความนั้น ถ้าไม่มีเลยบอกว่ายังไม่ประกาศ
-        const note = hasText(c.time) ? String(c.time).trim() : '';
         return { key: 'unknown', label: note ? (note.length > 26 ? note.slice(0, 25) + '…' : note) : 'ยังไม่ประกาศรับสมัคร', end: null };
     }
     const today = new Date(); today.setHours(0, 0, 0, 0);
