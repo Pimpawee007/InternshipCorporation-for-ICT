@@ -113,13 +113,41 @@ function validate() {
     return true;
 }
 
-document.getElementById('addCompanyForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!validate()) return;
+let pendingCompanyPayload = null;
+let pendingMergeTarget = null;
 
+async function sendCompanyPayload(payload) {
     const btnSubmit = document.getElementById('btnSubmitAdd');
     btnSubmit.textContent = 'กำลังส่ง...';
     btnSubmit.disabled = true;
+
+    try {
+        const res = await fetch(`${API_URL}/companies`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (result.success) {
+            document.getElementById('addSuccessName').textContent = payload.name + (payload.mergeTargetId ? ' (ขอรวมข้อมูลเพิ่มเติม)' : '');
+            document.getElementById('addCompanyForm').classList.add('hidden');
+            document.getElementById('addSuccess').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+            showToast(result.message || 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้งนะ', 'error');
+        }
+    } catch (err) {
+        showToast('เกิดข้อผิดพลาดในการเชื่อมต่อ Server', 'error');
+        console.error(err);
+    } finally {
+        btnSubmit.textContent = 'ส่งข้อมูลให้แอดมินตรวจ';
+        btnSubmit.disabled = false;
+    }
+}
+
+document.getElementById('addCompanyForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!validate()) return;
 
     const tStart = document.getElementById('addTimeStart').value;
     const tEnd = document.getElementById('addTimeEnd').value;
@@ -145,6 +173,7 @@ document.getElementById('addCompanyForm').addEventListener('submit', async (e) =
 
     const payload = {
         name: document.getElementById('addName').value.trim(),
+        sourceLabel: document.getElementById('addSourceLabel').value.trim(),
         loc: document.getElementById('addLoc').value.trim(),
         sector,
         desc: document.getElementById('addDesc').value.trim(),
@@ -155,31 +184,43 @@ document.getElementById('addCompanyForm').addEventListener('submit', async (e) =
         timeEnd: tEnd,
         pay: payStr,
         tags,
-        stations: stationPicker.get()
+        stations: stationPicker.get(),
+        mergeTargetId: ''
     };
 
-    try {
-        const res = await fetch(`${API_URL}/companies`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        const result = await res.json();
-        if (result.success) {
-            document.getElementById('addSuccessName').textContent = payload.name;
-            document.getElementById('addCompanyForm').classList.add('hidden');
-            document.getElementById('addSuccess').classList.remove('hidden');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        } else {
-            showToast(result.message || 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้งนะ', 'error');
-        }
-    } catch (err) {
-        showToast('เกิดข้อผิดพลาดในการเชื่อมต่อ Server', 'error');
-        console.error(err);
-    } finally {
-        btnSubmit.textContent = 'ส่งข้อมูลให้แอดมินตรวจ';
-        btnSubmit.disabled = false;
+    // ตรวจจับความเหมือนกันของชื่อบริษัท (ทั้งตรงกันเป๊ะและคล้ายกัน)
+    const { exact, similar } = findSimilar(payload.name);
+    const matched = exact || (similar.length > 0 ? similar[0] : null);
+
+    if (matched) {
+        pendingCompanyPayload = payload;
+        pendingMergeTarget = matched;
+        document.getElementById('dupTargetName').textContent = matched.name;
+        document.getElementById('dupModalSourceLabel').value = payload.sourceLabel || '';
+        openModal('duplicateMergeModal');
+        return;
     }
+
+    await sendCompanyPayload(payload);
+});
+
+// กดปุ่ม "รวมข้อมูลเข้าด้วยกัน" ใน Pop-up
+document.getElementById('btnConfirmMerge').addEventListener('click', async () => {
+    if (!pendingCompanyPayload || !pendingMergeTarget) return;
+    const customLabel = document.getElementById('dupModalSourceLabel').value.trim();
+    pendingCompanyPayload.mergeTargetId = pendingMergeTarget.id;
+    if (customLabel) pendingCompanyPayload.sourceLabel = customLabel;
+    closeModal('duplicateMergeModal');
+    await sendCompanyPayload(pendingCompanyPayload);
+    pendingCompanyPayload = null;
+    pendingMergeTarget = null;
+});
+
+// กดปุ่ม "ยกเลิก" ใน Pop-up
+document.getElementById('btnCancelMerge').addEventListener('click', () => {
+    closeModal('duplicateMergeModal');
+    pendingCompanyPayload = null;
+    pendingMergeTarget = null;
 });
 
 document.getElementById('btnAddAnother').addEventListener('click', () => {

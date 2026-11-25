@@ -3052,3 +3052,79 @@ html.reduce-motion { scroll-behavior: auto; }
 .btn-approve-all:hover { filter: brightness(1.08); }
 .btn-approve-all:disabled { opacity: .5; cursor: wait; }
 .btn-approve-all .icon { width: 16px; height: 16px; }
+
+/* =========================================================
+   v11 — แก้สี Tag ใน Dark Mode + Pop-up รวมข้อมูล + แยก Section
+   ========================================================= */
+:root[data-theme="dark"] .station-pill,
+:root[data-theme="dark"] .position-pill {
+    background: color-mix(in srgb, var(--line) 22%, var(--card));
+    border-color: color-mix(in srgb, var(--line) 55%, var(--card));
+    color: var(--text);
+}
+
+:root[data-theme="dark"] .mini-tag {
+    background: var(--teal-soft);
+    border-color: var(--chip-border);
+    color: var(--text);
+}
+
+:root[data-theme="dark"] .station-line i {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--line) 35%, var(--card));
+}
+
+.dup-modal-content { padding-top: var(--sp-5); }
+.dup-modal-head {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-3);
+}
+.dup-modal-head img { width: 72px; height: auto; flex-shrink: 0; }
+.dup-modal-head h3 { font-size: 1.15rem; margin-bottom: 4px; color: var(--teal); }
+.dup-modal-head p { font-size: .92rem; color: var(--muted); }
+.dup-modal-head b { color: var(--text); }
+
+.admin-card.is-merge { border-color: var(--lavender-text); }
+.merge-notice {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 12px;
+    background: var(--lavender);
+    color: var(--lavender-text);
+    font-size: .85rem;
+    font-weight: 500;
+}
+.merge-notice .icon { width: 16px; height: 16px; flex-shrink: 0; }
+
+.company-section-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+}
+.company-section-card.is-multi {
+    padding: var(--sp-4);
+    border: 1.5px solid var(--line);
+    border-radius: var(--r-card-sm);
+    background: var(--card);
+    margin-bottom: var(--sp-3);
+}
+.section-divider-head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-bottom: var(--sp-2);
+    margin-bottom: var(--sp-1);
+    border-bottom: 1px dashed var(--line);
+}
+.section-index-badge {
+    padding: 2px 10px;
+    border-radius: var(--r-pill);
+    background: var(--teal);
+    color: #fff;
+    font-size: .78rem;
+    font-weight: 600;
+}

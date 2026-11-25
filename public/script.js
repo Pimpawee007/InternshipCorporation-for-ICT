@@ -1,754 +1,128 @@
-// script.js — หน้าแรก (ค้นหา / กรอง / รายละเอียด / รีวิว)
-// ต้องโหลด common.js ก่อนไฟล์นี้
+// script.js — หน้าแรก (ค้นหา กรอง เปรียบเทียบ ดูรายละเอียด และเขียนรีวิว)
+// ต้องโหลด transit-data.js, tag-data.js และ common.js ก่อนไฟล์นี้
 
-let companyData = [];
-let currentCompanyId = null;
-let savedSet = getSaved();
-let compareSet = new Set(readList(COMPARE_KEY).slice(0, 3));  // เลือกได้สูงสุด 3 บริษัท (จำไว้ในเบราว์เซอร์)
-let popularTags = [];            // จาก /api/stats/popular
-const MAX_COMPARE = 3;
+let allCompanies = [];
+let filteredCompanies = [];
+let activeCompany = null;
+let savedIds = getSaved();
+let compareIds = readList(COMPARE_KEY);
 
-const view = {
-    query: '',
-    filters: {},          // { sector: [...], status: [...], position: [...], workmode: [...], other: [...] }
-    sort: 'newest',
-    savedOnly: false
+const filterState = {
+    sector: [],
+    status: [],
+    position: [],
+    workmode: [],
+    transit: [],
+    other: []
 };
 
-const SLIDERS = { 'ภาครัฐ': 'sliderGov', 'รัฐวิสาหกิจ': 'sliderState', 'เอกชน': 'sliderPrivate' };
-const SLIDER_IDS = Object.values(SLIDERS);
+let savedOnly = false;
+let currentSort = 'newest';
 
 // ---------------------------------------------------------------------------
-// โหลดข้อมูล
+// Init Pickers & UI Components
 // ---------------------------------------------------------------------------
-async function fetchCompanies() {
-    try {
-        const response = await fetch(`${API_URL}/companies`);
-        if (!response.ok) throw new Error('HTTP ' + response.status);
-        companyData = (await response.json()).map(c => ({ ...c, tags: displayTags(c) }));
-        applyView();
-        updateStats();
-        renderCategoryTiles();
-        loadPopular();
-        openFromUrl();
-    } catch (error) {
-        console.error("Error fetching data:", error);
-        SLIDER_IDS.forEach(id => {
-            document.getElementById(id).innerHTML = '<p class="slider-empty-text">ไม่สามารถโหลดข้อมูลได้</p>';
-        });
-        showNotice('อ๊ะ Memo โหลดข้อมูลไม่ได้ ลองรีเฟรชหน้าอีกครั้งนะ', false);
-    }
-}
-
-// เปิดรายละเอียดบริษัทจากลิงก์ เช่น index.html?company=c123
-function openFromUrl() {
-    const params = new URLSearchParams(location.search);
-    const id = params.get('company');
-    if (id && companyData.some(c => c.id === id)) return openDetailsModal(id);
-    if (params.has('compare') && compareSet.size >= 2) openCompare();
-}
-
-// ---------------------------------------------------------------------------
-// ค้นหา + กรอง + เรียง
-// ---------------------------------------------------------------------------
-function matchesQuery(c, q) {
-    if (!q) return true;
-    const hay = [c.name, c.pos, c.loc, c.desc, ...(c.tags || []), ...(c.stations || []).map(stationLabel)].join(' ').toLowerCase();
-    return q.split(/\s+/).every(word => hay.includes(word));
-}
-
-function matchesFilters(c) {
-    const tags = c.tags || [];
-    const f = view.filters;
-    if (f.sector?.length && !f.sector.includes(c.sector)) return false;
-    if (f.status?.length && !f.status.includes(deadlineStatus(c).key)) return false;
-    if (f.position?.length && !companyMatchesPositions(c, f.position)) return false;
-    if (f.workmode?.length && !f.workmode.some(t => tags.includes(t))) return false;
-    if (f.transit?.length && !companyMatchesTransit(c, f.transit)) return false;
-    if (f.other?.length && !f.other.some(t => tags.includes(t))) return false;
-    return true;
-}
-
-function createdTime(c) {
-    if (c.createdAt) return new Date(c.createdAt).getTime();
-    const m = String(c.id || '').match(/^c(\d{12,})$/);
-    return m ? Number(m[1]) : 0;
-}
-
-function sortCompanies(list) {
-    const arr = [...list];
-    if (view.sort === 'newest') {
-        arr.sort((a, b) => createdTime(b) - createdTime(a));
-    } else if (view.sort === 'closing') {
-        const rank = { closing: 0, open: 1, upcoming: 2, unknown: 3, closed: 4 };
-        arr.sort((a, b) => {
-            const sa = deadlineStatus(a), sb = deadlineStatus(b);
-            if (rank[sa.key] !== rank[sb.key]) return rank[sa.key] - rank[sb.key];
-            return (sa.end || Infinity) - (sb.end || Infinity);
-        });
-    } else if (view.sort === 'rating') {
-        arr.sort((a, b) => (b.ratingAvg || 0) - (a.ratingAvg || 0) || (b.reviewCount || 0) - (a.reviewCount || 0));
-    } else if (view.sort === 'name') {
-        arr.sort((a, b) => String(a.name).localeCompare(String(b.name), 'th'));
-    }
-    return arr;
-}
-
-function applyView() {
-    const q = view.query.trim().toLowerCase();
-    let list = companyData.filter(c => matchesQuery(c, q) && matchesFilters(c));
-    if (view.savedOnly) list = list.filter(c => savedSet.has(c.id));
-    renderCards(sortCompanies(list));
-    updateSavedCount();
-    updateCompareUI();
-    renderQuickChips();
-}
-
-// ---------------------------------------------------------------------------
-// การ์ดบริษัท
-// ---------------------------------------------------------------------------
-function cardHTML(company) {
-    const id = escapeHTML(company.id);
-    const sectorCls = SECTOR_CLASS[company.sector] || '';
-    const isSaved = savedSet.has(company.id);
-    const payHtml = hasPay(company.pay)
-        ? `<span class="pay-badge" title="${escapeHTML(company.pay)}">${icon('coins')}${escapeHTML(company.pay)}</span>`
-        : '';
-    const descHtml = company.desc ? `<p class="card-desc">${escapeHTML(company.desc)}</p>` : '';
-    const ratingHtml = company.reviewCount
-        ? `<span class="card-rating">${starsHTML(company.ratingAvg)}<b>${company.ratingAvg}</b><span>(${company.reviewCount} รีวิว)</span></span>`
-        : `<span class="card-rating empty">ยังไม่มีรีวิว</span>`;
-
-    return `
-        <article class="slider-card" data-tags="${escapeHTML((company.tags || []).join(','))}">
-            <div class="card-top">
-                ${logoHTML(company)}
-                <div class="card-title">
-                    <h4 class="company-name">${escapeHTML(company.name)}</h4>
-                    <p class="location">${icon('pin')}${hasText(company.loc) ? `<span>${escapeHTML(company.loc)}</span>` : '<span class="loc-missing">ยังไม่ระบุที่อยู่</span>'}</p>
-                    ${stationLineHTML(company)}
-                </div>
-                <button type="button" class="btn-heart ${isSaved ? 'is-saved' : ''}" data-save="${id}" aria-pressed="${isSaved}" aria-label="บันทึก ${escapeHTML(company.name)}">${icon('heart')}</button>
-            </div>
-            <div class="card-pills">
-                <span class="sector-tag ${sectorCls}">${escapeHTML(company.sector)}</span>
-                ${statusBadgeHTML(company)}
-                ${payHtml}
-            </div>
-            ${descHtml}
-            <div class="card-foot">
-                ${ratingHtml}
-                <div class="card-actions">
-                    <button class="btn-readmore" onclick="openDetailsModal('${id}')">ดูรายละเอียด${icon('arrow-right')}</button>
-                    <button type="button" class="btn-compare" data-compare="${id}" aria-pressed="false" title="เพิ่มเข้าเปรียบเทียบ" aria-label="เปรียบเทียบ ${escapeHTML(company.name)}">${icon('compare')}</button>
-                </div>
-            </div>
-        </article>`;
-}
-
-function stationLineHTML(company) {
-    const st = company.stations || [];
-    if (!st.length) return '';
-    const more = st.length > 1 ? ` <span class="more">+${st.length - 1}</span>` : '';
-    return `<p class="station-line" style="--line:${lineColor(st[0])}"><i></i><span>${escapeHTML(stationLabel(st[0]))}${more}</span></p>`;
-}
-
-function emptySliderHTML() {
-    const text = view.savedOnly ? 'ยังไม่ได้บันทึกบริษัทในหมวดนี้' : 'หมวดนี้ยังว่างอยู่ Memo ขอนอนรอก่อนนะ zzz';
-    return `
-        <div class="memo-state compact">
-            <img src="${MEMO}sleepy.webp" alt="Memo กำลังง่วงนอน" width="511" height="560">
-            <p>${text}</p>
-        </div>`;
-}
-
-function renderCards(companies) {
-    const html = {}, count = {};
-    SLIDER_IDS.forEach(id => { html[id] = ''; count[id] = 0; });
-
-    companies.forEach(company => {
-        const sliderId = SLIDERS[company.sector];
-        if (!sliderId) return;
-        html[sliderId] += cardHTML(company);
-        count[sliderId]++;
-    });
-
-    SLIDER_IDS.forEach(id => {
-        const el = document.getElementById(id);
-        el.innerHTML = html[id] || emptySliderHTML();
-        el.scrollLeft = 0;
-        const pill = document.querySelector(`[data-count-for="${id}"]`);
-        if (pill) pill.textContent = `${count[id]} แห่ง`;
-    });
-    updateSliderArrows();
-
-    // ค้นหา/กรองแล้วไม่เจออะไรเลย → ให้ Memo บอก
-    const total = SLIDER_IDS.reduce((sum, id) => sum + count[id], 0);
-    if (total === 0 && companyData.length > 0) {
-        showNotice(view.savedOnly && !view.query && !activeFilterCount()
-            ? 'ยังไม่ได้บันทึกบริษัทไว้เลย กดรูปหัวใจที่การ์ดเพื่อเก็บไว้ดูทีหลังนะ'
-            : 'อ๊ะ Memo หาไม่เจอเลย ลองเปลี่ยนคำค้นหรือตัวกรองดูนะ', true);
-    } else {
-        hideNotice();
-    }
-}
-
-function showNotice(text, showClear) {
-    document.getElementById('memoNoticeText').textContent = text;
-    document.getElementById('btnClearSearch').classList.toggle('hidden', !showClear);
-    document.getElementById('memoNotice').classList.remove('hidden');
-    document.querySelectorAll('.slider-group').forEach(g => g.classList.add('hidden'));
-}
-
-function hideNotice() {
-    document.getElementById('memoNotice').classList.add('hidden');
-    document.querySelectorAll('.slider-group').forEach(g => g.classList.remove('hidden'));
-}
-
-document.getElementById('btnClearSearch').addEventListener('click', () => {
-    document.getElementById('searchInput').value = '';
-    document.querySelectorAll('#filterModal input:checked').forEach(cb => cb.checked = false);
-    view.query = '';
-    view.filters = {};
-    setSavedOnly(false);
-    updateFilterCount();
-    applyView();
-});
-
-// ---------------------------------------------------------------------------
-// Slider
-// ---------------------------------------------------------------------------
-const scrollAmount = 300;
-function slideNext(containerId) {
-    document.getElementById(containerId).scrollBy({ left: scrollAmount, behavior: 'smooth' });
-}
-
-function slidePrev(containerId) {
-    document.getElementById(containerId).scrollBy({ left: -scrollAmount, behavior: 'smooth' });
-}
-
-// ปิดปุ่มลูกศรเมื่อเลื่อนสุดแล้ว / ไม่มีอะไรให้เลื่อน
-function updateSliderArrows() {
-    SLIDER_IDS.forEach(id => {
-        const el = document.getElementById(id);
-        const prev = document.querySelector(`.prev-btn[onclick*="'${id}'"]`);
-        const next = document.querySelector(`.next-btn[onclick*="'${id}'"]`);
-        if (!el || !prev || !next) return;
-        const max = el.scrollWidth - el.clientWidth;
-        prev.disabled = el.scrollLeft <= 2;
-        next.disabled = el.scrollLeft >= max - 2;
-    });
-}
-SLIDER_IDS.forEach(id => document.getElementById(id).addEventListener('scroll', updateSliderArrows, { passive: true }));
-window.addEventListener('resize', updateSliderArrows);
-
-// Hamburger Menu Toggle (ซ่อนไว้ แต่ยังทำงานได้)
-document.getElementById('hamburgerMenu').addEventListener('click', function() {
-    document.getElementById('navLinks').classList.toggle('active');
-});
-
-// ---------------------------------------------------------------------------
-// บันทึกบริษัท (หัวใจ)
-// ---------------------------------------------------------------------------
-function toggleSaved(id) {
-    if (savedSet.has(id)) savedSet.delete(id); else savedSet.add(id);
-    setSaved(savedSet);
-    const on = savedSet.has(id);
-    document.querySelectorAll(`[data-save="${CSS.escape(id)}"]`).forEach(btn => {
-        btn.classList.toggle('is-saved', on);
-        btn.setAttribute('aria-pressed', String(on));
-    });
-    if (currentCompanyId === id) updateModalSaveBtn();
-    updateSavedCount();
-    updateNavSavedBadge();
-    showToast(on ? 'Memo เก็บไว้ให้แล้ว ดูได้ที่ปุ่ม "ที่บันทึกไว้"' : 'เอาออกจากที่บันทึกไว้แล้ว', 'happy');
-    if (view.savedOnly && !on) applyView();
-}
-
-document.getElementById('find').addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-save]');
-    if (btn) return toggleSaved(btn.dataset.save);
-    const cmp = e.target.closest('[data-compare]');
-    if (cmp) return toggleCompare(cmp.dataset.compare);
-    const chip = e.target.closest('[data-quick]');
-    if (chip) return toggleQuickTag(chip.dataset.quick);
-});
-
-function updateSavedCount() {
-    const n = companyData.filter(c => savedSet.has(c.id)).length;
-    document.getElementById('savedCount').textContent = n ? n : '';
-}
-
-function setSavedOnly(on) {
-    view.savedOnly = on;
-    const btn = document.getElementById('btnSavedOnly');
-    btn.classList.toggle('is-active', on);
-    btn.setAttribute('aria-pressed', String(on));
-}
-
-document.getElementById('btnSavedOnly').addEventListener('click', () => {
-    setSavedOnly(!view.savedOnly);
-    applyView();
-});
-
-document.getElementById('sortSelect').addEventListener('change', (e) => {
-    view.sort = e.target.value;
-    applyView();
-});
-
-// ---------------------------------------------------------------------------
-// ค้นหา
-// ---------------------------------------------------------------------------
-document.getElementById('btnSearch').addEventListener('click', () => {
-    view.query = document.getElementById('searchInput').value;
-    applyView();
-});
-
-let searchTimer;
-document.getElementById('searchInput').addEventListener('input', (e) => {
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => { view.query = e.target.value; applyView(); }, 250);
-});
-
-document.getElementById('searchInput').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') document.getElementById('btnSearch').click();
-});
-
-// ---------------------------------------------------------------------------
-// ตัวกรอง
-// ---------------------------------------------------------------------------
-const filterPositionPicker = createPositionPicker(document.getElementById('filterPositions'), { allowWholeCategory: true });
 document.getElementById('filterWorkmode').innerHTML = chipsHTML(WORKMODE_TAGS, { group: 'workmode' });
-const filterStationPicker = createStationPicker(document.getElementById('filterTransit'), { allowWholeLine: true });
-
-function readFilters() {
-    const filters = {};
-    document.querySelectorAll('#filterModal input[data-group]:checked').forEach(cb => {
-        (filters[cb.dataset.group] = filters[cb.dataset.group] || []).push(cb.value);
-    });
-    const stations = filterStationPicker.get();
-    if (stations.length) filters.transit = stations;
-    const positions = filterPositionPicker.get();
-    if (positions.length) filters.position = positions;
-    return filters;
-}
-
-function syncFilterInputs() {
-    document.querySelectorAll('#filterModal input[data-group]').forEach(cb => {
-        cb.checked = (view.filters[cb.dataset.group] || []).includes(cb.value);
-    });
-    filterStationPicker.set(view.filters.transit || []);
-    filterPositionPicker.set(view.filters.position || []);
-}
-
-function activeFilterCount() {
-    return Object.values(view.filters).reduce((n, arr) => n + arr.length, 0);
-}
-
-function updateFilterCount() {
-    const n = activeFilterCount();
-    const badge = document.getElementById('filterCount');
-    badge.textContent = n;
-    badge.classList.toggle('hidden', n === 0);
-    document.getElementById('btnOpenFilter').classList.toggle('is-active', n > 0);
-    renderQuickChips();
-}
-
-document.getElementById('btnOpenFilter').addEventListener('click', () => {
-    syncFilterInputs();
-    openModal('filterModal');
-});
-document.getElementById('btnCancelFilter').addEventListener('click', () => closeModal('filterModal'));
-document.getElementById('btnResetFilter').addEventListener('click', () => {
-    document.querySelectorAll('#filterModal input:checked').forEach(cb => cb.checked = false);
-    filterStationPicker.set([]);
-    filterPositionPicker.set([]);
-});
-
-document.getElementById('btnApplyFilter').addEventListener('click', () => {
-    view.filters = readFilters();
-    trackTags([
-        ...['position', 'workmode', 'other'].flatMap(g => view.filters[g] || []),
-        ...(view.filters.transit || []).map(v => (LINE_BY_ID[v.split(':')[0]] || {}).name).filter(Boolean)
-    ]);
-    updateFilterCount();
-    applyView();
-    closeModal('filterModal');
-});
-
-// ---------------------------------------------------------------------------
-// รายละเอียดบริษัท
-// ---------------------------------------------------------------------------
-function updateModalSaveBtn() {
-    const btn = document.getElementById('modalSaveBtn');
-    const on = savedSet.has(currentCompanyId);
-    btn.classList.toggle('is-saved', on);
-    btn.setAttribute('aria-pressed', String(on));
-    btn.querySelector('span').textContent = on ? 'บันทึกไว้แล้ว' : 'บันทึกไว้ดูทีหลัง';
-}
-
-document.getElementById('modalSaveBtn').addEventListener('click', () => {
-    if (currentCompanyId) toggleSaved(currentCompanyId);
-});
-
-function openDetailsModal(companyId) {
-    const data = companyData.find(c => c.id === companyId);
-    if (!data) return;
-    currentCompanyId = companyId;
-    addRecent(companyId);
-
-    document.getElementById('modalLogo').innerHTML = logoHTML(data, 'lg');
-    document.getElementById('modalCompanyName').textContent = data.name;
-    const sectorTag = document.getElementById('modalSectorTag');
-    sectorTag.textContent = data.sector;
-    sectorTag.className = 'sector-tag ' + (SECTOR_CLASS[data.sector] || '');
-    document.getElementById('modalStatus').innerHTML = statusBadgeHTML(data);
-    updateModalSaveBtn();
-    updateModalCompareBtn();
-    const cal = calendarURL(data);
-    const calBtn = document.getElementById('modalCalendarBtn');
-    calBtn.classList.toggle('hidden', !cal || deadlineStatus(data).key === 'closed');
-    if (cal) calBtn.href = cal;
-
-    
-    // ช่องไหนยังไม่มีข้อมูล → ป้ายสีเทาบอกผู้ใช้ตรงๆ แทนขีด "-"
-    const setField = (id, value, emptyText) => {
-        const el = document.getElementById(id);
-        if (hasText(value)) el.textContent = value; else el.innerHTML = missingHTML(emptyText);
-    };
-    setField('modalDesc', data.desc, 'ยังไม่มีคำอธิบาย');
-    setField('modalLoc', data.loc, 'ยังไม่ระบุที่อยู่');
-    setField('modalPay', data.pay, 'ไม่ระบุ');
-    const positions = (data.tags || []).filter(t => POSITION_TAGS.includes(t));
-    document.getElementById('modalPositions').innerHTML = positions.map(positionPillHTML).join('');
-    if (positions.length || hasText(data.pos)) document.getElementById('modalPos').textContent = hasText(data.pos) ? data.pos : '';
-    else document.getElementById('modalPos').innerHTML = missingHTML('ยังไม่ระบุตำแหน่ง · สอบถามบริษัทโดยตรง');
-    if (hasText(data.time)) document.getElementById('modalTime').textContent = data.time;
-    else document.getElementById('modalTime').innerHTML = missingHTML('ยังไม่ประกาศรอบรับสมัคร');
-
-    // กล่องบอกว่า Memo ยังหาข้อมูลส่วนไหนไม่เจอ + ปุ่มช่วยเพิ่มข้อมูล
-    const missing = missingFields(data);
-    const missBox = document.getElementById('modalMissing');
-    missBox.classList.toggle('hidden', !missing.length);
-    document.getElementById('modalMissingText').textContent = missing.join(' · ');
-
-    const extraTags = (data.tags || []).filter(t => t !== data.sector && !TRANSIT_TAGS.includes(t) && !POSITION_TAGS.includes(t));
-    const stations = data.stations || [];
-    document.getElementById('modalStationsRow').classList.toggle('hidden', !stations.length);
-    document.getElementById('modalStations').innerHTML = stations.map(stationPillHTML).join('');
-    document.getElementById('modalTags').innerHTML = extraTags.map(t => `<span class="mini-tag">${escapeHTML(t)}</span>`).join('');
-
-    const contactText = hasText(data.contact) ? data.contact : '';
-    const linkEl = document.getElementById('modalContactLink');
-    const textEl = document.getElementById('modalContactText');
-
-    if (!contactText) {
-        textEl.innerHTML = missingHTML('ยังไม่มีช่องทางสมัคร');
-        textEl.style.display = 'inline';
-        linkEl.style.display = 'none';
-    } else if (contactText.startsWith('http') || contactText.startsWith('www.')) {
-        let url = contactText.startsWith('www.') ? 'http://' + contactText : contactText;
-        linkEl.href = url;
-        linkEl.textContent = contactText;
-        linkEl.style.display = 'inline';
-        textEl.style.display = 'none';
-    } else {
-        textEl.textContent = contactText;
-        textEl.style.display = 'inline';
-        linkEl.style.display = 'none';
-    }
-
-    resetReviewForm();
-    resetReportForm();
-    loadReviews(companyId, data);
-
-    const modal = document.getElementById('companyModal');
-    openModal('companyModal');
-    modal.querySelector('.modal-content').scrollTop = 0;
-}
-
-// ---------------------------------------------------------------------------
-// รีวิว
-// ---------------------------------------------------------------------------
 document.getElementById('rvWorkmode').innerHTML = chipsHTML(WORKMODE_TAGS, { name: 'rvWorkmode', type: 'radio' });
 
-(function fillYears() {
-    const thisYear = new Date().getFullYear() + 543;
-    const opts = ['<option value="">ไม่ระบุ</option>'];
-    for (let y = thisYear; y >= thisYear - 6; y--) opts.push(`<option value="${y}">${y}</option>`);
-    document.getElementById('rvYear').innerHTML = opts.join('');
+const filterPositionPicker = createPositionPicker(document.getElementById('filterPositions'), {
+    allowWholeCategory: true
+});
+const filterStationPicker = createStationPicker(document.getElementById('filterTransit'), {
+    allowWholeLine: true
+});
+
+// เติมปี พ.ศ. ในฟอร์มรีวิว
+(function populateReviewYears() {
+    const sel = document.getElementById('rvYear');
+    if (!sel) return;
+    const currentBE = new Date().getFullYear() + 543;
+    let html = '<option value="">ไม่ระบุปี</option>';
+    for (let y = currentBE; y >= currentBE - 5; y--) {
+        html += `<option value="${y}">${y}</option>`;
+    }
+    sel.innerHTML = html;
 })();
 
-function reviewItemHTML(r) {
-    const meta = [r.year ? `ฝึกปี ${r.year}` : '', r.role, r.workMode, r.pay ? `ได้ ${r.pay}` : ''].filter(Boolean).map(escapeHTML).join(' · ');
-    const date = r.createdAt ? formatThaiDate(new Date(r.createdAt), true) : '';
-    const facts = [
-        r.difficulty ? DIFFICULTY_LABEL[r.difficulty] : '',
-        r.hasTest === 'yes' ? 'มีข้อสอบ' : r.hasTest === 'no' ? 'ไม่มีข้อสอบ' : '',
-        r.needPortfolio === 'yes' ? 'ใช้ portfolio' : r.needPortfolio === 'no' ? 'ไม่ต้องใช้ portfolio' : ''
-    ].filter(Boolean);
-    const interview = (facts.length || r.interviewQuestions) ? `
-            <div class="review-interview">
-                <p class="ri-title">${icon('mic')}สัมภาษณ์</p>
-                ${facts.length ? `<div class="ri-facts">${facts.map(f => `<span class="mini-tag">${escapeHTML(f)}</span>`).join('')}</div>` : ''}
-                ${r.interviewQuestions ? `<p class="review-text">${escapeHTML(r.interviewQuestions)}</p>` : ''}
-            </div>` : '';
-    return `
-        <article class="review-item">
-            <div class="review-top">
-                ${starsHTML(r.rating)}
-                <span class="review-rec ${r.recommend ? 'yes' : 'no'}">${icon('thumb')}${r.recommend ? 'แนะนำ' : 'ไม่แนะนำ'}</span>
-                <span class="review-date">${date}</span>
-            </div>
-            ${meta ? `<p class="review-meta">${meta}</p>` : ''}
-            <p class="review-text">${escapeHTML(r.text)}</p>
-            ${interview}
-        </article>`;
-}
-
-async function loadReviews(companyId, company) {
-    const list = document.getElementById('reviewList');
-    const summary = document.getElementById('reviewSummary');
-    summary.innerHTML = '';
-    list.innerHTML = '<p class="review-loading">กำลังโหลดรีวิว...</p>';
-    try {
-        const res = await fetch(`${API_URL}/companies/${encodeURIComponent(companyId)}/reviews`);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const reviews = await res.json();
-        if (currentCompanyId !== companyId) return;
-
-        if (!reviews.length) {
-            list.innerHTML = `
-                <div class="memo-state compact review-empty">
-                    <img src="${MEMO}happy.webp" alt="Memo กำลังดีใจ" width="560" height="518">
-                    <p>ยังไม่มีรีวิว ถ้าเคยไปฝึกที่นี่ เป็นคนแรกที่เล่าให้รุ่นน้องฟังสิ!</p>
-                </div>`;
-            return;
-        }
-        const avg = reviews.reduce((s, r) => s + (Number(r.rating) || 0), 0) / reviews.length;
-        const rec = Math.round(reviews.filter(r => r.recommend).length / reviews.length * 100);
-        summary.innerHTML = `${starsHTML(avg)}<b>${avg.toFixed(1)}</b><span>${reviews.length} รีวิว · ${rec}% แนะนำ</span>`;
-        list.innerHTML = reviews.map(reviewItemHTML).join('');
-    } catch (err) {
-        list.innerHTML = '<p class="review-loading">โหลดรีวิวไม่ได้ ลองใหม่อีกครั้งนะ</p>';
-    }
-}
-
-function resetReviewForm() {
-    const form = document.getElementById('reviewForm');
-    form.reset();
-    form.classList.add('hidden');
-    document.getElementById('btnWriteReview').classList.remove('hidden');
-}
-
-document.getElementById('btnWriteReview').addEventListener('click', () => {
-    document.getElementById('reviewForm').classList.remove('hidden');
-    document.getElementById('btnWriteReview').classList.add('hidden');
-    document.getElementById('reviewForm').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-});
-document.getElementById('btnCancelReview').addEventListener('click', resetReviewForm);
-
-document.getElementById('reviewForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const rating = document.querySelector('input[name="rvRating"]:checked');
-    if (!rating) return showToast('ให้คะแนนดาวก่อนนะ', 'error');
-    const text = document.getElementById('rvText').value.trim();
-    if (text.length < 10) return showToast('เล่าเพิ่มอีกนิดนะ อย่างน้อย 10 ตัวอักษร', 'error');
-
-    const btn = document.getElementById('btnSubmitReview');
-    btn.disabled = true;
-    try {
-        const res = await fetch(`${API_URL}/companies/${encodeURIComponent(currentCompanyId)}/reviews`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                rating: Number(rating.value),
-                role: document.getElementById('rvRole').value,
-                pay: document.getElementById('rvPay').value,
-                workMode: (document.querySelector('input[name="rvWorkmode"]:checked') || {}).value || '',
-                recommend: (document.querySelector('input[name="rvRecommend"]:checked') || {}).value === 'yes',
-                text,
-                year: document.getElementById('rvYear').value,
-                difficulty: (document.querySelector('input[name="rvDifficulty"]:checked') || {}).value || '',
-                hasTest: (document.querySelector('input[name="rvTest"]:checked') || {}).value || '',
-                needPortfolio: (document.querySelector('input[name="rvPortfolio"]:checked') || {}).value || '',
-                interviewQuestions: document.getElementById('rvInterview').value
-            })
-        });
-        const result = await res.json();
-        if (result.success) {
-            resetReviewForm();
-            showToast('ขอบคุณที่เล่าให้ฟังนะ! รีวิวจะขึ้นหลังแอดมินตรวจสอบ');
-        } else {
-            showToast(result.message || 'ส่งรีวิวไม่สำเร็จ', 'error');
-        }
-    } catch (err) {
-        showToast('เกิดข้อผิดพลาดในการเชื่อมต่อ Server', 'error');
-    } finally {
-        btn.disabled = false;
-    }
-});
-
-// ---------------------------------------------------------------------------
-// แจ้งข้อมูลผิด
-// ---------------------------------------------------------------------------
-function resetReportForm() {
-    const form = document.getElementById('reportForm');
-    form.reset();
-    form.classList.add('hidden');
-    document.getElementById('btnReport').classList.remove('hidden');
-}
-
-document.getElementById('btnReport').addEventListener('click', () => {
-    document.getElementById('reportForm').classList.remove('hidden');
-    document.getElementById('btnReport').classList.add('hidden');
-    document.getElementById('reportText').focus();
-});
-document.getElementById('btnCancelReport').addEventListener('click', resetReportForm);
-
-// ปุ่ม "รู้ข้อมูล? ช่วยเพิ่มให้หน่อย" → เปิดฟอร์มแจ้งแอดมิน พร้อมเติมหัวข้อที่ยังขาด
-document.getElementById('btnHelpInfo').addEventListener('click', () => {
-    const missing = document.getElementById('modalMissingText').textContent;
-    document.getElementById('btnReport').click();
-    const box = document.getElementById('reportText');
-    if (!box.value) box.value = `ข้อมูลเพิ่มเติม (${missing}):\n`;
-    box.setSelectionRange(box.value.length, box.value.length);
-    document.querySelector('#companyModal .report-box').scrollIntoView({ behavior: 'smooth', block: 'center' });
-});
-
-document.getElementById('reportForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const message = document.getElementById('reportText').value.trim();
-    if (message.length < 5) return showToast('ช่วยบอกหน่อยว่าข้อมูลตรงไหนผิด', 'error');
-    const btn = document.getElementById('btnSubmitReport');
-    btn.disabled = true;
-    try {
-        const res = await fetch(`${API_URL}/companies/${encodeURIComponent(currentCompanyId)}/report`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message })
-        });
-        const result = await res.json();
-        if (result.success) {
-            resetReportForm();
-            showToast('ส่งให้แอดมินแล้ว ขอบคุณที่ช่วยกันดูแลข้อมูลนะ');
-        } else {
-            showToast(result.message || 'ส่งไม่สำเร็จ', 'error');
-        }
-    } catch (err) {
-        showToast('เกิดข้อผิดพลาดในการเชื่อมต่อ Server', 'error');
-    } finally {
-        btn.disabled = false;
-    }
-});
-
-// ---------------------------------------------------------------------------
-// ตัวเลขสรุปบนหน้าแรก
-// ---------------------------------------------------------------------------
-function updateStats() {
-    const statuses = companyData.map(c => deadlineStatus(c).key);
-    document.getElementById('statTotal').textContent = companyData.length;
-    document.getElementById('statOpen').textContent = statuses.filter(k => k === 'open' || k === 'closing').length;
-    document.getElementById('statClosing').textContent = statuses.filter(k => k === 'closing').length;
-    document.getElementById('statReviews').textContent = companyData.reduce((n, c) => n + (c.reviewCount || 0), 0);
-}
-
-document.querySelectorAll('.stat-tile').forEach(tile => tile.addEventListener('click', () => {
-    const type = tile.dataset.stat;
-    if (type === 'all') view.filters = {};
-    if (type === 'open') view.filters = { status: ['open', 'closing'] };
-    if (type === 'closing') view.filters = { status: ['closing'] };
-    if (type === 'reviews') {
-        view.sort = 'rating';
-        document.getElementById('sortSelect').value = 'rating';
-    }
-    updateFilterCount();
-    applyView();
-    document.getElementById('find').scrollIntoView({ behavior: 'smooth' });
-}));
-
-// ---------------------------------------------------------------------------
-// หมวดตำแหน่งยอดนิยม (การ์ด 8 หมวด)
-// ---------------------------------------------------------------------------
+// สร้างการ์ดหมวดตำแหน่งยอดนิยมหน้าแรก
 function renderCategoryTiles() {
-    const box = document.getElementById('categoryTiles');
-    if (!box) return;
-    box.innerHTML = POSITION_CATEGORIES.map(cat => {
-        const n = companyData.filter(c => (c.tags || []).some(t => CATEGORY_OF_POSITION[t] === cat)).length;
-        return `<button type="button" class="cat-tile" data-cat="${cat.id}" style="--cat:${cat.color}">
-            <span class="cat-icon">${icon(CATEGORY_ICON[cat.id] || 'briefcase')}</span>
-            <span class="cat-name">${escapeHTML(cat.name)}</span>
-            <span class="cat-count">${n} บริษัท</span>
-        </button>`;
+    const grid = document.getElementById('categoryTiles');
+    if (!grid) return;
+    grid.innerHTML = POSITION_CATEGORIES.map(cat => {
+        const count = allCompanies.filter(c =>
+            (c.tags || []).some(t => CATEGORY_OF_POSITION[t] === cat)
+        ).length;
+        const ic = CATEGORY_ICON[cat.id] || 'briefcase';
+        return `
+            <button type="button" class="cat-tile" data-cat="${escapeHTML(cat.id)}" style="--cat:${cat.color}">
+                <span class="cat-icon">${icon(ic)}</span>
+                <span class="cat-name">${escapeHTML(cat.name)}</span>
+                <span class="cat-count">${count} บริษัท</span>
+            </button>`;
     }).join('');
 }
 
-document.getElementById('categoryTiles').addEventListener('click', (e) => {
+document.getElementById('categoryTiles')?.addEventListener('click', (e) => {
     const tile = e.target.closest('[data-cat]');
     if (!tile) return;
-    view.filters = { position: [`cat:${tile.dataset.cat}`] };
-    updateFilterCount();
-    applyView();
+    const val = 'cat:' + tile.dataset.cat;
+    filterState.position = [val];
+    filterPositionPicker.set([val]);
+    syncFilterUI();
+    applyFilters();
     document.getElementById('find').scrollIntoView({ behavior: 'smooth' });
 });
 
 // ---------------------------------------------------------------------------
-// ปุ่ม Tag ยอดนิยม (ข้างปุ่ม "ที่บันทึกไว้")
+// Load Data
 // ---------------------------------------------------------------------------
-async function loadPopular() {
+async function loadCompanies() {
     try {
-        const res = await fetch(`${API_URL}/stats/popular`);
-        if (res.ok) popularTags = (await res.json()).map(s => s.tag);
-    } catch { /* ใช้ค่าจากข้อมูลบริษัทแทน */ }
-    renderQuickChips();
+        const res = await fetch(`${API_URL}/companies`);
+        if (!res.ok) throw new Error('fetch failed');
+        const list = await res.json();
+        allCompanies = (Array.isArray(list) ? list : []).map(c => ({
+            ...c,
+            tags: displayTags(c)
+        }));
+
+        updateStats();
+        renderCategoryTiles();
+        applyFilters();
+        loadPopularTags();
+
+        // เปิดบริษัทอัตโนมัติถ้าเข้าผ่านลิงก์แชร์ ?company=...
+        const paramId = new URLSearchParams(location.search).get('company');
+        if (paramId) {
+            const target = allCompanies.find(c => c.id === paramId);
+            if (target) openCompanyModal(target.id);
+        }
+    } catch (err) {
+        console.error(err);
+        showNotice('โหลดข้อมูลไม่สำเร็จ ลองรีเฟรชหน้าเว็บใหม่อีกครั้งนะ');
+        ['sliderGov', 'sliderState', 'sliderPrivate'].forEach(id => {
+            document.getElementById(id).innerHTML = '<p class="slider-empty-text">ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้</p>';
+        });
+    }
 }
 
-// Tag ที่คนกดค้นหาบ่อยก่อน แล้วเติมด้วย Tag ที่มีบริษัทใช้เยอะที่สุดให้ครบ 6 อัน
-function quickTagList() {
-    const known = [...POSITION_TAGS, ...WORKMODE_TAGS, ...TRANSIT_TAGS, ...OTHER_TAGS, 'มีค่าตอบแทน'];
-    const freq = {};
-    companyData.forEach(c => (c.tags || []).forEach(t => { if (known.includes(t)) freq[t] = (freq[t] || 0) + 1; }));
-    const byFreq = Object.keys(freq).sort((a, b) => freq[b] - freq[a]);
-    const list = [...new Set([...popularTags.filter(t => known.includes(t)), ...byFreq])];
-    return (list.length ? list : POSITION_TAGS).slice(0, 6);
-}
-
-// ปุ่มลัดของสายรถไฟฟ้า = กรอง "ทุกสถานีในสายนั้น"
-function filterValueOf(tag) {
-    const line = lineByName(tag);
-    return line ? `${line.id}:*` : tag;
-}
-
-function isTagActive(tag) {
-    return (view.filters[tagGroup(tag)] || []).includes(filterValueOf(tag));
-}
-
-function renderQuickChips() {
+async function loadPopularTags() {
     const box = document.getElementById('quickChips');
     if (!box) return;
-    box.innerHTML = quickTagList().map(tag => {
-        const on = isTagActive(tag);
-        return `<button type="button" class="quick-chip ${on ? 'is-active' : ''}" data-quick="${escapeHTML(tag)}" aria-pressed="${on}">${escapeHTML(tag)}</button>`;
-    }).join('');
-}
-
-function toggleQuickTag(tag) {
-    const group = tagGroup(tag);
-    const value = filterValueOf(tag);
-    const list = view.filters[group] || [];
-    if (list.includes(value)) {
-        view.filters[group] = list.filter(t => t !== value);
-        if (!view.filters[group].length) delete view.filters[group];
-    } else {
-        view.filters[group] = [...list, value];
-        trackTags([tag]);
-    }
-    updateFilterCount();
-    applyView();
+    try {
+        const res = await fetch(`${API_URL}/stats/popular`);
+        const items = res.ok ? await res.json() : [];
+        const fallback = ['Frontend Developer', 'Backend Developer', 'Data Analyst', 'UX/UI Designer', 'Hybrid', 'มีค่าตอบแทน'];
+        const tags = items.length ? items.map(x => x.tag) : fallback;
+        box.innerHTML = tags.map(t =>
+            `<button type="button" class="quick-chip" data-quick-tag="${escapeHTML(t)}">${escapeHTML(t)}</button>`
+        ).join('');
+        syncQuickChips();
+    } catch { /* ignore */ }
 }
 
 function trackTags(tags) {
-    if (!tags.length) return;
+    if (!tags || !tags.length) return;
     fetch(`${API_URL}/stats/tags`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -757,153 +131,783 @@ function trackTags(tags) {
 }
 
 // ---------------------------------------------------------------------------
-// เปรียบเทียบบริษัท
+// Stats Row
 // ---------------------------------------------------------------------------
-function toggleCompare(id) {
-    if (compareSet.has(id)) {
-        compareSet.delete(id);
-    } else {
-        if (compareSet.size >= MAX_COMPARE) return showToast(`เปรียบเทียบได้สูงสุด ${MAX_COMPARE} บริษัทนะ`, 'error');
-        compareSet.add(id);
-    }
-    updateCompareUI();
-    if (currentCompanyId === id) updateModalCompareBtn();
-}
-
-function updateCompareUI() {
-    // ตัดบริษัทที่ไม่มีแล้วออก (รอให้โหลดข้อมูลเสร็จก่อน)
-    if (companyData.length) compareSet.forEach(id => { if (!companyData.some(c => c.id === id)) compareSet.delete(id); });
-    writeList(COMPARE_KEY, [...compareSet]);
-    document.querySelectorAll('[data-compare]').forEach(btn => {
-        const on = compareSet.has(btn.dataset.compare);
-        btn.classList.toggle('is-active', on);
-        btn.setAttribute('aria-pressed', String(on));
+function updateStats() {
+    let open = 0, closing = 0, reviews = 0;
+    allCompanies.forEach(c => {
+        const st = deadlineStatus(c).key;
+        if (st === 'open') open++;
+        if (st === 'closing') closing++;
+        reviews += Number(c.reviewCount) || 0;
     });
-    const bar = document.getElementById('compareBar');
-    const n = compareSet.size;
-    bar.classList.toggle('hidden', n === 0);
-    document.body.classList.toggle('has-compare', n > 0);
-    document.getElementById('compareCount').textContent = `เลือกแล้ว ${n}/${MAX_COMPARE}`;
-    document.getElementById('compareLogos').innerHTML = [...compareSet]
-        .map(id => companyData.find(c => c.id === id)).filter(Boolean)
-        .map(c => logoHTML(c, 'sm')).join('');
-    document.getElementById('btnCompareOpen').disabled = n < 2;
+    document.getElementById('statTotal').textContent = allCompanies.length;
+    document.getElementById('statOpen').textContent = open;
+    document.getElementById('statClosing').textContent = closing;
+    document.getElementById('statReviews').textContent = reviews;
 }
 
-function updateModalCompareBtn() {
-    const btn = document.getElementById('modalCompareBtn');
-    const on = compareSet.has(currentCompanyId);
-    btn.classList.toggle('is-active', on);
-    btn.setAttribute('aria-pressed', String(on));
-    btn.querySelector('span').textContent = on ? 'อยู่ในรายการเปรียบเทียบ' : 'เปรียบเทียบ';
-}
-
-document.getElementById('modalCompareBtn').addEventListener('click', () => {
-    if (currentCompanyId) toggleCompare(currentCompanyId);
+document.querySelector('.stats-row')?.addEventListener('click', (e) => {
+    const tile = e.target.closest('[data-stat]');
+    if (!tile) return;
+    const mode = tile.dataset.stat;
+    resetAllFilters(false);
+    if (mode === 'open') filterState.status = ['open'];
+    else if (mode === 'closing') filterState.status = ['closing'];
+    else if (mode === 'reviews') {
+        currentSort = 'rating';
+        document.getElementById('sortSelect').value = 'rating';
+    }
+    syncFilterUI();
+    applyFilters();
+    document.getElementById('find').scrollIntoView({ behavior: 'smooth' });
 });
-document.getElementById('btnCompareClear').addEventListener('click', () => {
-    compareSet.clear();
-    updateCompareUI();
-});
-document.getElementById('btnCompareOpen').addEventListener('click', openCompare);
 
-function tagsIn(c, list) {
-    return (c.tags || []).filter(t => list.includes(t));
+// ---------------------------------------------------------------------------
+// Filtering & Sorting
+// ---------------------------------------------------------------------------
+function companyMatchesQuery(c, q) {
+    if (!q) return true;
+    const sections = Array.isArray(c.sections) ? c.sections : [];
+    const haystack = [
+        c.name, c.loc, c.sector, c.desc, c.pos, c.pay,
+        ...(c.tags || []),
+        ...sections.flatMap(s => [s.sourceLabel, s.loc, s.desc, s.pos, s.pay, ...(s.tags || [])])
+    ].filter(Boolean).join(' ').toLowerCase();
+    return q.split(/\s+/).every(word => haystack.includes(word));
 }
 
-function openCompare() {
-    const list = [...compareSet].map(id => companyData.find(c => c.id === id)).filter(Boolean);
-    if (list.length < 2) return showToast('เลือกอย่างน้อย 2 บริษัทก่อนนะ', 'error');
+function applyFilters() {
+    const q = document.getElementById('searchInput').value.trim().toLowerCase();
 
-    const pills = (arr) => arr.length ? arr.map(t => `<span class="mini-tag">${escapeHTML(t)}</span>`).join('') : '<span class="cg-empty">-</span>';
-    const rows = [
-        ['ประเภท', c => `<span class="sector-tag ${SECTOR_CLASS[c.sector] || ''}">${escapeHTML(c.sector)}</span>`],
-        ['รับสมัคร', c => statusBadgeHTML(c) || '<span class="cg-empty">ไม่ระบุ</span>'],
-        ['ค่าตอบแทน', c => hasPay(c.pay) ? `<b class="highlight-pay">${escapeHTML(c.pay)}</b>` : '<span class="cg-empty">ไม่มี / ไม่ระบุ</span>'],
-        ['ตำแหน่ง', c => {
-            const list = tagsIn(c, POSITION_TAGS);
-            const extra = c.pos ? `<span class="cg-pos-extra">${escapeHTML(c.pos)}</span>` : '';
-            return (list.length ? list.map(positionPillHTML).join('') : '') + extra || '<span class="cg-empty">-</span>';
-        }],
-        ['รูปแบบงาน', c => pills(tagsIn(c, WORKMODE_TAGS))],
-        ['รถไฟฟ้า', c => (c.stations || []).length ? c.stations.map(stationPillHTML).join('') : pills(tagsIn(c, TRANSIT_TAGS))],
-        ['สถานที่', c => escapeHTML(c.loc || '-')],
-        ['คะแนนรีวิว', c => c.reviewCount ? `${starsHTML(c.ratingAvg)} <b>${c.ratingAvg}</b> <span class="cg-empty">(${c.reviewCount})</span>` : '<span class="cg-empty">ยังไม่มีรีวิว</span>'],
-        ['รุ่นพี่แนะนำ', c => c.recommendPct != null ? `<b>${c.recommendPct}%</b>` : '<span class="cg-empty">-</span>']
+    filteredCompanies = allCompanies.filter(c => {
+        if (savedOnly && !savedIds.has(c.id)) return false;
+        if (!companyMatchesQuery(c, q)) return false;
+
+        if (filterState.sector.length && !filterState.sector.includes(c.sector)) return false;
+
+        if (filterState.status.length) {
+            const st = deadlineStatus(c).key;
+            if (!filterState.status.includes(st)) return false;
+        }
+
+        if (filterState.position.length && !companyMatchesPositions(c, filterState.position)) return false;
+
+        if (filterState.workmode.length) {
+            const tags = c.tags || [];
+            if (!filterState.workmode.some(w => tags.includes(w))) return false;
+        }
+
+        if (filterState.transit.length && !companyMatchesTransit(c, filterState.transit)) return false;
+
+        if (filterState.other.length) {
+            const tags = c.tags || [];
+            if (!filterState.other.every(o => tags.includes(o))) return false;
+        }
+
+        return true;
+    });
+
+    sortCompanies(filteredCompanies);
+    renderSliders();
+    updateSavedBadge();
+}
+
+function sortCompanies(list) {
+    if (currentSort === 'name') {
+        list.sort((a, b) => String(a.name).localeCompare(String(b.name), 'th'));
+    } else if (currentSort === 'rating') {
+        list.sort((a, b) => (b.ratingAvg || 0) - (a.ratingAvg || 0) || (b.reviewCount || 0) - (a.reviewCount || 0));
+    } else if (currentSort === 'closing') {
+        const rank = { closing: 0, open: 1, upcoming: 2, unknown: 3, closed: 4 };
+        list.sort((a, b) => {
+            const sa = deadlineStatus(a), sb = deadlineStatus(b);
+            if (rank[sa.key] !== rank[sb.key]) return rank[sa.key] - rank[sb.key];
+            if (sa.end && sb.end) return sa.end - sb.end;
+            return 0;
+        });
+    } else {
+        list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Render Sliders & Cards
+// ---------------------------------------------------------------------------
+function renderSliders() {
+    const groups = [
+        { id: 'sliderGov', sector: 'ภาครัฐ' },
+        { id: 'sliderState', sector: 'รัฐวิสาหกิจ' },
+        { id: 'sliderPrivate', sector: 'เอกชน' }
     ];
 
-    let html = '<div class="cg-label cg-head"></div>' + list.map(c => `
-        <div class="cg-cell cg-head">
-            ${logoHTML(c)}
-            <b class="cg-name">${escapeHTML(c.name)}</b>
-            <button type="button" class="cg-remove" data-remove="${escapeHTML(c.id)}" aria-label="เอาออก">${icon('x')}</button>
-        </div>`).join('');
-    rows.forEach(([label, fn]) => {
-        html += `<div class="cg-label">${label}</div>` + list.map(c => `<div class="cg-cell">${fn(c)}</div>`).join('');
-    });
-    html += '<div class="cg-label"></div>' + list.map(c => `<div class="cg-cell"><button type="button" class="btn-readmore" data-detail="${escapeHTML(c.id)}">ดูรายละเอียด</button></div>`).join('');
+    groups.forEach(g => {
+        const items = filteredCompanies.filter(c => c.sector === g.sector);
+        const container = document.getElementById(g.id);
+        const pill = document.querySelector(`[data-count-for="${g.id}"]`);
+        if (pill) pill.textContent = items.length ? `${items.length} แห่ง` : '';
 
-    const grid = document.getElementById('compareTable');
-    grid.style.setProperty('--cols', list.length);
-    grid.innerHTML = html;
-    openModal('compareModal');
+        if (items.length === 0) {
+            container.innerHTML = `<p class="slider-empty-text">ไม่มีบริษัทในหมวด${g.sector}ที่ตรงกับเงื่อนไข</p>`;
+        } else {
+            container.innerHTML = items.map(companyCardHTML).join('');
+        }
+        updateSliderButtons(g.id);
+    });
+
+    const notice = document.getElementById('memoNotice');
+    if (allCompanies.length > 0 && filteredCompanies.length === 0) {
+        notice.classList.remove('hidden');
+    } else {
+        notice.classList.add('hidden');
+    }
 }
 
-document.getElementById('compareTable').addEventListener('click', (e) => {
-    const rm = e.target.closest('[data-remove]');
-    if (rm) {
-        compareSet.delete(rm.dataset.remove);
-        updateCompareUI();
-        if (compareSet.size < 2) closeModal('compareModal'); else openCompare();
-        return;
-    }
-    const d = e.target.closest('[data-detail]');
-    if (d) {
-        closeModal('compareModal');
-        openDetailsModal(d.dataset.detail);
-    }
+function showNotice(msg) {
+    document.getElementById('memoNoticeText').textContent = msg;
+    document.getElementById('memoNotice').classList.remove('hidden');
+}
+
+function companyCardHTML(c) {
+    const id = escapeHTML(c.id);
+    const isSaved = savedIds.has(c.id);
+    const isCompared = compareIds.includes(c.id);
+    const sectionCount = Array.isArray(c.sections) ? c.sections.length : 0;
+
+    const stations = c.stations || [];
+    const firstStation = stations[0] ? `
+        <div class="station-line">
+            <i style="--line:${lineColor(stations[0])}"></i>
+            <span>${escapeHTML(stationLabel(stations[0]))}</span>
+            ${stations.length > 1 ? `<span class="more">+${stations.length - 1}</span>` : ''}
+        </div>` : '';
+
+    const ratingHTML = c.reviewCount
+        ? `<div class="card-rating">${starsHTML(c.ratingAvg)}<b>${c.ratingAvg}</b><span>(${c.reviewCount})</span></div>`
+        : `<div class="card-rating empty">ยังไม่มีรีวิว</div>`;
+
+    return `
+        <article class="slider-card" data-company-id="${id}">
+            <div class="card-top">
+                ${logoHTML(c)}
+                <div class="card-title">
+                    <h4 class="company-name" title="${escapeHTML(c.name)}">${escapeHTML(c.name)}</h4>
+                    <div class="location">${icon('pin')}<span class="${hasText(c.loc) ? '' : 'loc-missing'}">${escapeHTML(hasText(c.loc) ? c.loc : 'ยังไม่ระบุสถานที่')}</span></div>
+                </div>
+                <button type="button" class="btn-heart ${isSaved ? 'is-saved' : ''}" data-save-id="${id}" aria-label="${isSaved ? 'เอาออกจากที่บันทึกไว้' : 'บันทึกบริษัทนี้'}" aria-pressed="${isSaved}">
+                    ${icon('heart')}
+                </button>
+            </div>
+
+            <div class="card-pills">
+                ${statusBadgeHTML(c)}
+                ${hasPay(c.pay) ? `<span class="pay-badge">${icon('coins')}${escapeHTML(c.pay)}</span>` : ''}
+                ${sectionCount > 1 ? `<span class="status-badge status-note">${sectionCount} รอบ/แหล่งข้อมูล</span>` : ''}
+            </div>
+
+            ${firstStation}
+            ${hasText(c.desc) ? `<p class="card-desc">${escapeHTML(c.desc)}</p>` : ''}
+
+            <div class="card-foot">
+                ${ratingHTML}
+                <div class="card-actions">
+                    <button type="button" class="btn-readmore" onclick="openCompanyModal('${id}')">ดูรายละเอียด${icon('arrow-right')}</button>
+                    <button type="button" class="btn-compare ${isCompared ? 'is-active' : ''}" data-compare-id="${id}" title="เปรียบเทียบ" aria-label="เพิ่มเข้าเปรียบเทียบ" aria-pressed="${isCompared}">
+                        ${icon('compare')}
+                    </button>
+                </div>
+            </div>
+        </article>`;
+}
+
+// ---------------------------------------------------------------------------
+// Slider Controls
+// ---------------------------------------------------------------------------
+function slidePrev(id) {
+    const el = document.getElementById(id);
+    el.scrollBy({ left: -300, behavior: 'smooth' });
+}
+
+function slideNext(id) {
+    const el = document.getElementById(id);
+    el.scrollBy({ left: 300, behavior: 'smooth' });
+}
+
+function updateSliderButtons(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const group = el.closest('.slider-group');
+    const prev = group?.querySelector('.prev-btn');
+    const next = group?.querySelector('.next-btn');
+    if (prev) prev.disabled = el.scrollLeft <= 4;
+    if (next) next.disabled = el.scrollLeft + el.clientWidth >= el.scrollWidth - 4;
+}
+
+['sliderGov', 'sliderState', 'sliderPrivate'].forEach(id => {
+    document.getElementById(id)?.addEventListener('scroll', () => updateSliderButtons(id), { passive: true });
 });
 
 // ---------------------------------------------------------------------------
-// แชร์
+// Search, Filter Modal & Quick Chips
 // ---------------------------------------------------------------------------
-document.getElementById('modalShareBtn').addEventListener('click', async () => {
-    const c = companyData.find(x => x.id === currentCompanyId);
+document.getElementById('btnSearch').addEventListener('click', applyFilters);
+document.getElementById('searchInput').addEventListener('input', applyFilters);
+document.getElementById('sortSelect').addEventListener('change', (e) => {
+    currentSort = e.target.value;
+    applyFilters();
+});
+
+document.getElementById('btnSavedOnly').addEventListener('click', function () {
+    savedOnly = !savedOnly;
+    this.classList.toggle('is-active', savedOnly);
+    this.setAttribute('aria-pressed', String(savedOnly));
+    applyFilters();
+});
+
+function updateSavedBadge() {
+    const n = savedIds.size;
+    const badge = document.getElementById('savedCount');
+    if (badge) badge.textContent = n || '';
+    updateNavSavedBadge();
+}
+
+document.getElementById('btnOpenFilter').addEventListener('click', () => {
+    syncFilterUI();
+    openModal('filterModal');
+});
+document.getElementById('btnCancelFilter').addEventListener('click', () => closeModal('filterModal'));
+
+document.getElementById('btnApplyFilter').addEventListener('click', () => {
+    ['sector', 'status', 'workmode', 'other'].forEach(grp => {
+        filterState[grp] = [...document.querySelectorAll(`#filterModal input[data-group="${grp}"]:checked`)].map(el => el.value);
+    });
+    filterState.position = filterPositionPicker.get();
+    filterState.transit = filterStationPicker.get();
+
+    const tracked = [
+        ...filterState.position.filter(v => !v.startsWith('cat:')),
+        ...filterState.workmode,
+        ...filterState.other,
+        ...filterState.transit.map(v => (LINE_BY_ID[v.split(':')[0]] || {}).name).filter(Boolean)
+    ];
+    trackTags(tracked);
+
+    syncFilterUI();
+    closeModal('filterModal');
+    applyFilters();
+});
+
+document.getElementById('btnResetFilter').addEventListener('click', () => {
+    resetAllFilters(true);
+});
+
+document.getElementById('btnClearSearch').addEventListener('click', () => {
+    resetAllFilters(true);
+    applyFilters();
+});
+
+function resetAllFilters(clearSearchInput = true) {
+    if (clearSearchInput) document.getElementById('searchInput').value = '';
+    savedOnly = false;
+    const savedBtn = document.getElementById('btnSavedOnly');
+    savedBtn.classList.remove('is-active');
+    savedBtn.setAttribute('aria-pressed', 'false');
+
+    Object.keys(filterState).forEach(k => { filterState[k] = []; });
+    filterPositionPicker.set([]);
+    filterStationPicker.set([]);
+    syncFilterUI();
+}
+
+function syncFilterUI() {
+    ['sector', 'status', 'workmode', 'other'].forEach(grp => {
+        document.querySelectorAll(`#filterModal input[data-group="${grp}"]`).forEach(el => {
+            el.checked = filterState[grp].includes(el.value);
+        });
+    });
+
+    const totalActive = Object.values(filterState).reduce((acc, arr) => acc + arr.length, 0);
+    const btn = document.getElementById('btnOpenFilter');
+    const countEl = document.getElementById('filterCount');
+    btn.classList.toggle('is-active', totalActive > 0);
+    countEl.textContent = totalActive;
+    countEl.classList.toggle('hidden', totalActive === 0);
+    syncQuickChips();
+}
+
+// กดปุ่ม Tag ยอดนิยม
+document.getElementById('quickChips')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-quick-tag]');
+    if (!btn) return;
+    const tag = btn.dataset.quickTag;
+    const grp = tagGroup(tag);
+
+    let val = tag;
+    if (grp === 'transit') {
+        const line = lineByName(tag);
+        if (line) val = `${line.id}:*`;
+    }
+
+    const exists = filterState[grp].includes(val);
+    filterState[grp] = exists
+        ? filterState[grp].filter(x => x !== val)
+        : [...filterState[grp], val];
+
+    if (!exists) trackTags([tag]);
+    if (grp === 'position') filterPositionPicker.set(filterState.position);
+    if (grp === 'transit') filterStationPicker.set(filterState.transit);
+
+    syncFilterUI();
+    applyFilters();
+});
+
+function syncQuickChips() {
+    document.querySelectorAll('[data-quick-tag]').forEach(btn => {
+        const tag = btn.dataset.quickTag;
+        const grp = tagGroup(tag);
+        let val = tag;
+        if (grp === 'transit') {
+            const line = lineByName(tag);
+            if (line) val = `${line.id}:*`;
+        }
+        btn.classList.toggle('is-active', filterState[grp].includes(val));
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Company Details Modal (รองรับทั้งบริษัททั่วไป และบริษัทที่รวมหลาย Section)
+// ---------------------------------------------------------------------------
+function renderSectionBlock(sec, index, total, sector) {
+    const tags = displayTags(sec);
+    const positions = tags.filter(t => POSITION_TAGS.includes(t));
+    const otherTags = tags.filter(t => t !== sector && !TRANSIT_TAGS.includes(t) && !POSITION_TAGS.includes(t));
+    const stations = Array.isArray(sec.stations) ? sec.stations : [];
+
+    const contact = sec.contact || '';
+    const isLink = contact.startsWith('http') || contact.startsWith('www.');
+    const contactUrl = contact.startsWith('www.') ? 'http://' + contact : contact;
+
+    const headerHTML = total > 1 ? `
+        <div class="section-divider-head">
+            <span class="section-index-badge">รอบ / ข้อมูลชุดที่ ${index + 1}</span>
+            ${hasText(sec.sourceLabel) ? `<strong>${escapeHTML(sec.sourceLabel)}</strong>` : ''}
+            ${statusBadgeHTML(sec)}
+        </div>` : '';
+
+    return `
+        <div class="company-section-card ${total > 1 ? 'is-multi' : ''}">
+            ${headerHTML}
+            <div class="detail-row">
+                <span class="detail-icon">${icon('file')}</span>
+                <p><strong>คำอธิบาย</strong> <span class="break-text">${hasText(sec.desc) ? escapeHTML(sec.desc) : missingHTML('ยังไม่มีคำอธิบาย')}</span></p>
+            </div>
+            <div class="detail-row">
+                <span class="detail-icon">${icon('pin')}</span>
+                <p><strong>สถานที่ตั้ง</strong> <span class="break-text">${hasText(sec.loc) ? escapeHTML(sec.loc) : missingHTML('ยังไม่ระบุสถานที่')}</span></p>
+            </div>
+            ${stations.length ? `
+            <div class="detail-row">
+                <span class="detail-icon">${icon('train')}</span>
+                <p><strong>รถไฟฟ้าใกล้ที่สุด</strong> <span class="station-pills">${stations.map(stationPillHTML).join('')}</span></p>
+            </div>` : ''}
+            <div class="detail-row">
+                <span class="detail-icon pay">${icon('coins')}</span>
+                <p><strong>ค่าตอบแทน</strong> <span class="highlight-pay break-text">${hasText(sec.pay) ? escapeHTML(sec.pay) : missingHTML('ยังไม่ระบุค่าตอบแทน')}</span></p>
+            </div>
+            <div class="detail-row">
+                <span class="detail-icon">${icon('briefcase')}</span>
+                <p>
+                    <strong>ตำแหน่งงานที่เปิดรับ</strong>
+                    ${positions.length ? `<span class="station-pills">${positions.map(positionPillHTML).join('')}</span>` : ''}
+                    ${hasText(sec.pos) ? `<span class="break-text pos-extra">${escapeHTML(sec.pos)}</span>` : (!positions.length ? missingHTML('ยังไม่ระบุตำแหน่ง') : '')}
+                </p>
+            </div>
+            <div class="detail-row">
+                <span class="detail-icon">${icon('calendar')}</span>
+                <p><strong>ระยะเวลาการรับสมัคร</strong> <span class="break-text">${hasText(sec.time) ? escapeHTML(sec.time) : missingHTML('ยังไม่ประกาศรอบรับสมัคร')}</span></p>
+            </div>
+            <div class="detail-row">
+                <span class="detail-icon">${icon('phone')}</span>
+                <p>
+                    <strong>ช่องทางติดต่อ</strong>
+                    ${isLink
+                        ? `<a href="${escapeHTML(contactUrl)}" target="_blank" rel="noopener" class="break-text link-wrap">${escapeHTML(contact)}</a>`
+                        : `<span class="break-text">${hasText(contact) ? escapeHTML(contact) : missingHTML('ยังไม่ระบุช่องทางติดต่อ')}</span>`
+                    }
+                </p>
+            </div>
+            ${otherTags.length ? `<div class="modal-tags">${otherTags.map(t => `<span class="mini-tag">${escapeHTML(t)}</span>`).join('')}</div>` : ''}
+        </div>
+    `;
+}
+
+function openCompanyModal(id) {
+    const c = allCompanies.find(x => x.id === id);
     if (!c) return;
-    const url = companyLink(c.id);
+    activeCompany = c;
+    addRecent(c.id);
+
+    document.getElementById('modalLogo').innerHTML = logoHTML(c, 'lg');
+    const sectorEl = document.getElementById('modalSectorTag');
+    sectorEl.textContent = c.sector || 'เอกชน';
+    sectorEl.className = `sector-tag ${SECTOR_CLASS[c.sector] || ''}`;
+    document.getElementById('modalStatus').innerHTML = statusBadgeHTML(c);
+    document.getElementById('modalCompanyName').textContent = c.name;
+
+    // ปุ่ม Action ด้านบน Modal
+    syncModalActionButtons();
+
+    const calBtn = document.getElementById('modalCalendarBtn');
+    const calUrl = calendarURL(c);
+    calBtn.classList.toggle('hidden', !calUrl);
+    if (calUrl) calBtn.href = calUrl;
+
+    // แสดงรายการ Section (ถ้ายังไม่มี array sections ให้ใช้ข้อมูลระดับบนเป็น 1 section)
+    const sections = (Array.isArray(c.sections) && c.sections.length > 0) ? c.sections : [c];
+    const detailsContainer = document.getElementById('modalDetailsContainer');
+    const missing = missingFields(c);
+    const missingBoxHTML = (sections.length === 1 && missing.length) ? `
+        <div class="missing-box">
+            <img src="assets/character/thinking.webp" alt="" width="420" height="560" loading="lazy">
+            <div>
+                <p class="missing-title">Memo ยังหาข้อมูลส่วนนี้ไม่เจอ</p>
+                <p class="missing-list">${escapeHTML(missing.join(' · '))}</p>
+                <p class="missing-sub">ข้อมูลอาจยังไม่ประกาศ หรือบริษัทยังไม่เปิดรับในตอนนี้ ลองติดต่อบริษัทโดยตรงนะ</p>
+                <button type="button" class="action-chip" id="btnHelpInfo">${icon('plus')}<span>รู้ข้อมูล? ช่วยเพิ่มให้หน่อย</span></button>
+            </div>
+        </div>` : '';
+
+    detailsContainer.innerHTML = sections
+        .map((sec, idx) => renderSectionBlock(sec, idx, sections.length, c.sector))
+        .join('') + missingBoxHTML;
+
+    // รีเซ็ตฟอร์มรีวิวและฟอร์มแจ้งข้อมูลผิด
+    document.getElementById('reviewForm').classList.add('hidden');
+    document.getElementById('reportForm').classList.add('hidden');
+
+    openModal('companyModal');
+    loadCompanyReviews(c.id);
+}
+
+function syncModalActionButtons() {
+    if (!activeCompany) return;
+    const saved = savedIds.has(activeCompany.id);
+    const compared = compareIds.includes(activeCompany.id);
+
+    const saveBtn = document.getElementById('modalSaveBtn');
+    saveBtn.classList.toggle('is-saved', saved);
+    saveBtn.setAttribute('aria-pressed', String(saved));
+    saveBtn.querySelector('span').textContent = saved ? 'บันทึกแล้ว' : 'บันทึกไว้ดูทีหลัง';
+
+    const compBtn = document.getElementById('modalCompareBtn');
+    compBtn.classList.toggle('is-active', compared);
+    compBtn.setAttribute('aria-pressed', String(compared));
+    compBtn.querySelector('span').textContent = compared ? 'อยู่ในรายการเทียบ' : 'เปรียบเทียบ';
+}
+
+document.getElementById('modalSaveBtn').addEventListener('click', () => {
+    if (activeCompany) toggleSaveCompany(activeCompany.id);
+});
+
+document.getElementById('modalCompareBtn').addEventListener('click', () => {
+    if (activeCompany) toggleCompareCompany(activeCompany.id);
+});
+
+document.getElementById('modalShareBtn').addEventListener('click', async () => {
+    if (!activeCompany) return;
+    const url = companyLink(activeCompany.id);
     if (navigator.share) {
         try {
-            await navigator.share({ title: c.name, text: `ที่ฝึกงานน่าสนใจ: ${c.name}`, url });
+            await navigator.share({ title: activeCompany.name, text: `ข้อมูลฝึกงาน ${activeCompany.name}`, url });
             return;
-        } catch (err) {
-            if (err && err.name === 'AbortError') return;
-        }
+        } catch { /* fallback to clipboard */ }
     }
     try {
         await navigator.clipboard.writeText(url);
-        showToast('ก๊อปลิงก์แล้ว ส่งในกลุ่ม LINE ได้เลย', 'happy');
+        showToast('คัดลอกลิงก์บริษัทแล้ว!', 'happy');
     } catch {
-        showToast('ก๊อปไม่ได้ ลองก๊อปลิงก์จากแถบที่อยู่แทนนะ', 'error');
-        history.replaceState(null, '', url);
+        showToast('คัดลอกลิงก์ไม่สำเร็จ', 'error');
+    }
+});
+
+// กดปุ่ม "รู้ข้อมูล? ช่วยเพิ่มให้หน่อย" ในกล่องข้อมูลขาด
+document.getElementById('modalDetailsContainer').addEventListener('click', (e) => {
+    if (e.target.closest('#btnHelpInfo')) {
+        closeModal('companyModal');
+        document.getElementById('btnReport').click();
+        openModal('companyModal');
+        document.getElementById('reportForm').classList.remove('hidden');
+        document.getElementById('reportText').focus();
     }
 });
 
 // ---------------------------------------------------------------------------
-// Bottom tab bar: ไฮไลต์แท็บตาม section ที่กำลังดูอยู่
+// Reviews
 // ---------------------------------------------------------------------------
-(function initTabbar() {
-    const tabs = document.querySelectorAll('.tabbar .tab');
-    const setActive = (id) => tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === id));
-    tabs.forEach(t => t.addEventListener('click', () => setActive(t.dataset.tab)));
+async function loadCompanyReviews(companyId) {
+    const listEl = document.getElementById('reviewList');
+    const sumEl = document.getElementById('reviewSummary');
+    listEl.innerHTML = '<p class="review-loading">กำลังโหลดรีวิว...</p>';
+    sumEl.innerHTML = '';
 
-    if (!('IntersectionObserver' in window)) return;
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => { if (entry.isIntersecting) setActive(entry.target.id); });
-    }, { rootMargin: '-45% 0px -50% 0px' });
-    ['find', 'more', 'contact-section'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) observer.observe(el);
+    try {
+        const res = await fetch(`${API_URL}/companies/${encodeURIComponent(companyId)}/reviews`);
+        const reviews = res.ok ? await res.json() : [];
+
+        if (!reviews.length) {
+            listEl.innerHTML = `
+                <div class="memo-state compact review-empty">
+                    <img src="assets/character/sleepy.webp" alt="" width="200" height="220">
+                    <p>ยังไม่มีรีวิวเลย เคยฝึกที่นี่ไหม? มาเขียนคนแรกให้รุ่นน้องหน่อย!</p>
+                </div>`;
+            return;
+        }
+
+        const avg = Math.round((reviews.reduce((s, r) => s + Number(r.rating || 0), 0) / reviews.length) * 10) / 10;
+        sumEl.innerHTML = `${starsHTML(avg)}<b>${avg}</b><span>(${reviews.length} รีวิว)</span>`;
+        listEl.innerHTML = reviews.map(reviewItemHTML).join('');
+    } catch {
+        listEl.innerHTML = '<p class="review-loading">โหลดรีวิวไม่สำเร็จ</p>';
+    }
+}
+
+function reviewItemHTML(r) {
+    const meta = [r.year ? `ฝึกปี ${r.year}` : '', r.role, r.workMode, r.pay ? `ได้ ${r.pay}` : '']
+        .filter(Boolean).map(escapeHTML).join(' · ');
+    const dateStr = r.createdAt ? formatThaiDate(new Date(r.createdAt), true) : '';
+
+    const facts = [
+        r.difficulty ? DIFFICULTY_LABEL[r.difficulty] : '',
+        r.hasTest === 'yes' ? 'มีข้อสอบ' : r.hasTest === 'no' ? 'ไม่มีข้อสอบ' : '',
+        r.needPortfolio === 'yes' ? 'ใช้ portfolio' : r.needPortfolio === 'no' ? 'ไม่ต้องใช้ portfolio' : ''
+    ].filter(Boolean);
+
+    const interviewHTML = (facts.length || r.interviewQuestions) ? `
+        <div class="review-interview">
+            <p class="ri-title">${icon('mic')}ประสบการณ์สัมภาษณ์</p>
+            ${facts.length ? `<div class="ri-facts">${facts.map(f => `<span class="mini-tag">${escapeHTML(f)}</span>`).join('')}</div>` : ''}
+            ${r.interviewQuestions ? `<p class="review-text">${escapeHTML(r.interviewQuestions)}</p>` : ''}
+        </div>` : '';
+
+    return `
+        <article class="review-item">
+            <div class="review-top">
+                ${starsHTML(r.rating)}
+                <span class="review-rec ${r.recommend ? 'yes' : 'no'}">${icon('thumb')}${r.recommend ? 'แนะนำ' : 'ไม่แนะนำ'}</span>
+                <span class="review-date">${escapeHTML(dateStr)}</span>
+            </div>
+            ${meta ? `<p class="review-meta">${meta}</p>` : ''}
+            <p class="review-text">${escapeHTML(r.text)}</p>
+            ${interviewHTML}
+        </article>`;
+}
+
+document.getElementById('btnWriteReview').addEventListener('click', () => {
+    const form = document.getElementById('reviewForm');
+    form.classList.toggle('hidden');
+    if (!form.classList.contains('hidden')) form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+});
+
+document.getElementById('btnCancelReview').addEventListener('click', () => {
+    document.getElementById('reviewForm').classList.add('hidden');
+});
+
+document.getElementById('reviewForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!activeCompany) return;
+
+    const rating = document.querySelector('input[name="rvRating"]:checked')?.value;
+    const text = document.getElementById('rvText').value.trim();
+    if (!rating) return showToast('กดเลือกดาวให้คะแนนก่อนนะ', 'error');
+    if (text.length < 10) return showToast('เล่าประสบการณ์อย่างน้อย 10 ตัวอักษรนะ', 'error');
+
+    const btn = document.getElementById('btnSubmitReview');
+    btn.disabled = true;
+
+    const payload = {
+        rating: Number(rating),
+        year: document.getElementById('rvYear').value,
+        role: document.getElementById('rvRole').value.trim(),
+        pay: document.getElementById('rvPay').value.trim(),
+        workMode: document.querySelector('input[name="rvWorkmode"]:checked')?.value || '',
+        recommend: document.querySelector('input[name="rvRecommend"]:checked')?.value === 'yes',
+        difficulty: document.querySelector('input[name="rvDifficulty"]:checked')?.value || '',
+        hasTest: document.querySelector('input[name="rvTest"]:checked')?.value || '',
+        needPortfolio: document.querySelector('input[name="rvPortfolio"]:checked')?.value || '',
+        interviewQuestions: document.getElementById('rvInterview').value.trim(),
+        text
+    };
+
+    try {
+        const res = await fetch(`${API_URL}/companies/${encodeURIComponent(activeCompany.id)}/reviews`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+            e.target.reset();
+            e.target.classList.add('hidden');
+            showToast('ส่งรีวิวแล้ว! จะแสดงหลังแอดมินตรวจสอบ', 'happy');
+        } else {
+            showToast(data.message || 'ส่งรีวิวไม่สำเร็จ', 'error');
+        }
+    } catch {
+        showToast('เชื่อมต่อ Server ไม่ได้', 'error');
+    } finally {
+        btn.disabled = false;
+    }
+});
+
+// ---------------------------------------------------------------------------
+// Report Incorrect Info
+// ---------------------------------------------------------------------------
+document.getElementById('btnReport').addEventListener('click', () => {
+    document.getElementById('reportForm').classList.toggle('hidden');
+});
+
+document.getElementById('btnCancelReport').addEventListener('click', () => {
+    document.getElementById('reportForm').classList.add('hidden');
+});
+
+document.getElementById('reportForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!activeCompany) return;
+    const message = document.getElementById('reportText').value.trim();
+    if (message.length < 5) return showToast('ช่วยพิมพ์รายละเอียดเพิ่มอีกนิดนะ', 'error');
+
+    const btn = document.getElementById('btnSubmitReport');
+    btn.disabled = true;
+    try {
+        const res = await fetch(`${API_URL}/companies/${encodeURIComponent(activeCompany.id)}/report`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message })
+        });
+        const data = await res.json();
+        if (data.success) {
+            e.target.reset();
+            e.target.classList.add('hidden');
+            showToast('ส่งแจ้งแอดมินเรียบร้อย ขอบคุณนะ!', 'happy');
+        } else {
+            showToast(data.message || 'ส่งไม่สำเร็จ', 'error');
+        }
+    } catch {
+        showToast('เชื่อมต่อ Server ไม่ได้', 'error');
+    } finally {
+        btn.disabled = false;
+    }
+});
+
+// ---------------------------------------------------------------------------
+// Save (Heart) & Compare
+// ---------------------------------------------------------------------------
+function toggleSaveCompany(id) {
+    if (savedIds.has(id)) {
+        savedIds.delete(id);
+        showToast('เอาออกจากที่บันทึกไว้แล้ว');
+    } else {
+        savedIds.add(id);
+        showToast('บันทึกไว้ดูทีหลังแล้ว!', 'happy');
+    }
+    setSaved(savedIds);
+    updateSavedBadge();
+    syncModalActionButtons();
+    if (savedOnly) applyFilters();
+    else renderSliders();
+}
+
+function toggleCompareCompany(id) {
+    if (compareIds.includes(id)) {
+        compareIds = compareIds.filter(x => x !== id);
+    } else {
+        if (compareIds.length >= 3) return showToast('เปรียบเทียบได้สูงสุด 3 บริษัทนะ', 'error');
+        compareIds = [...compareIds, id];
+    }
+    writeList(COMPARE_KEY, compareIds);
+    updateCompareBar();
+    syncModalActionButtons();
+    renderSliders();
+}
+
+function updateCompareBar() {
+    const bar = document.getElementById('compareBar');
+    const items = compareIds.map(id => allCompanies.find(c => c.id === id)).filter(Boolean);
+    compareIds = items.map(c => c.id);
+    writeList(COMPARE_KEY, compareIds);
+
+    bar.classList.toggle('hidden', items.length === 0);
+    document.body.classList.toggle('has-compare', items.length > 0);
+    if (!items.length) return;
+
+    document.getElementById('compareLogos').innerHTML = items.map(c => logoHTML(c, 'sm')).join('');
+    document.getElementById('compareCount').textContent = `เลือก ${items.length}/3`;
+    document.getElementById('btnCompareOpen').disabled = items.length < 2;
+}
+
+document.getElementById('btnCompareClear').addEventListener('click', () => {
+    compareIds = [];
+    writeList(COMPARE_KEY, []);
+    updateCompareBar();
+    syncModalActionButtons();
+    renderSliders();
+});
+
+document.getElementById('btnCompareOpen').addEventListener('click', () => {
+    const items = compareIds.map(id => allCompanies.find(c => c.id === id)).filter(Boolean);
+    if (items.length < 2) return;
+
+    const table = document.getElementById('compareTable');
+    table.style.setProperty('--cols', items.length);
+
+    const rows = [
+        ['ประเภท', c => `<span class="sector-tag ${SECTOR_CLASS[c.sector] || ''}">${escapeHTML(c.sector)}</span>`],
+        ['สถานะ', c => statusBadgeHTML(c)],
+        ['ค่าตอบแทน', c => hasPay(c.pay) ? `<span class="highlight-pay">${escapeHTML(c.pay)}</span>` : '<span class="cg-empty">-</span>'],
+        ['สถานที่ตั้ง', c => escapeHTML(c.loc || '-')],
+        ['รถไฟฟ้า', c => (c.stations || []).length ? c.stations.map(stationPillHTML).join('') : '<span class="cg-empty">-</span>'],
+        ['ตำแหน่ง', c => {
+            const pos = (c.tags || []).filter(t => POSITION_TAGS.includes(t)).map(positionPillHTML).join('');
+            const extra = hasText(c.pos) ? `<span class="cg-pos-extra">${escapeHTML(c.pos)}</span>` : '';
+            return (pos || extra) ? pos + extra : '<span class="cg-empty">-</span>';
+        }],
+        ['รีวิว', c => c.reviewCount ? `${starsHTML(c.ratingAvg)} <b>${c.ratingAvg}</b> (${c.reviewCount})` : '<span class="cg-empty">ยังไม่มี</span>'],
+        ['', c => `<button type="button" class="btn-readmore" onclick="closeModal('compareModal');openCompanyModal('${escapeHTML(c.id)}')">ดูรายละเอียด</button>`]
+    ];
+
+    let html = '<div class="cg-label">บริษัท</div>' + items.map(c => `
+        <div class="cg-cell cg-head">
+            <button type="button" class="cg-remove" data-remove-compare="${escapeHTML(c.id)}" aria-label="เอาออก">${icon('x')}</button>
+            ${logoHTML(c)}
+            <strong class="cg-name">${escapeHTML(c.name)}</strong>
+        </div>`).join('');
+
+    rows.forEach(([label, renderCell]) => {
+        html += `<div class="cg-label">${label}</div>` + items.map(c => `<div class="cg-cell">${renderCell(c)}</div>`).join('');
     });
-})();
 
-fetchCompanies();
+    table.innerHTML = html;
+    openModal('compareModal');
+});
+
+document.getElementById('compareTable').addEventListener('click', (e) => {
+    const rm = e.target.closest('[data-remove-compare]');
+    if (!rm) return;
+    toggleCompareCompany(rm.dataset.removeCompare);
+    if (compareIds.length < 2) closeModal('compareModal');
+    else document.getElementById('btnCompareOpen').click();
+});
+
+// Delegated clicks บนการ์ดบริษัท (กดหัวใจ / กดเปรียบเทียบ)
+document.getElementById('find').addEventListener('click', (e) => {
+    const saveBtn = e.target.closest('[data-save-id]');
+    if (saveBtn) return toggleSaveCompany(saveBtn.dataset.saveId);
+
+    const compBtn = e.target.closest('[data-compare-id]');
+    if (compBtn) return toggleCompareCompany(compBtn.dataset.compareId);
+});
+
+// ---------------------------------------------------------------------------
+// Start
+// ---------------------------------------------------------------------------
+loadCompanies().then(() => updateCompareBar());

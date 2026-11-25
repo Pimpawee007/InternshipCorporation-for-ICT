@@ -75,6 +75,11 @@
                         <input type="text" id="addName" placeholder="กรอกชื่อบริษัท" maxlength="150" required autocomplete="off">
                         <div id="dupHint" class="dup-hint hidden" role="status"></div>
                     </div>
+                    <div class="form-group">
+                        <label for="addSourceLabel">รอบที่เปิดรับ / แหล่งที่มาของข้อมูล (ไม่บังคับ)</label>
+                        <input type="text" id="addSourceLabel" placeholder="เช่น รอบสหกิจศึกษา, Job Fair 2026, เปิดรับเพิ่ม Q3" maxlength="100">
+                        <p class="field-hint">ช่วยแยกหัวข้อให้ชัดเจน กรณีบริษัทนี้เปิดรับหลายรอบหรือมีข้อมูลจากหลายที่</p>
+                    </div>
                     <div class="form-row">
                         <div class="form-group">
                             <label for="addLoc">สถานที่ตั้ง <span class="req">*</span></label>
@@ -192,6 +197,27 @@
     <div id="memoToast" class="toast" role="status" aria-live="polite">
         <img id="memoToastImg" src="assets/character/excited.webp" alt="" width="479" height="560">
         <p id="memoToastText"></p>
+    </div>
+
+    <!-- Duplicate Merge Modal -->
+    <div id="duplicateMergeModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="dupModalTitle">
+        <div class="modal-content dup-modal-content">
+            <div class="dup-modal-head">
+                <img src="assets/character/thinking.webp" alt="Memo กำลังสงสัย" width="84" height="108">
+                <div>
+                    <h3 id="dupModalTitle">พบชื่อบริษัทเดียวกันในระบบ</h3>
+                    <p id="dupModalDesc">มีข้อมูลของ <b id="dupTargetName"></b> อยู่ในระบบแล้ว ต้องการนำข้อมูลชุดนี้ไปรวมเป็น Section ใหม่ในบริษัทเดิมหรือไม่?</p>
+                </div>
+            </div>
+            <div class="form-group mt-2">
+                <label for="dupModalSourceLabel">ตั้งชื่อหัวข้อ Section ที่จะรวม (เช่น รอบที่ 2 / Job Fair)</label>
+                <input type="text" id="dupModalSourceLabel" placeholder="เช่น รอบสหกิจศึกษา, ประกาศเพิ่มเติม" maxlength="100">
+            </div>
+            <div class="filter-actions">
+                <button type="button" class="btn-filter-cancel" id="btnCancelMerge">ยกเลิก</button>
+                <button type="button" class="btn-filter-submit" id="btnConfirmMerge">รวมข้อมูลเข้าด้วยกัน</button>
+            </div>
+        </div>
     </div>
 </body>
 </html>

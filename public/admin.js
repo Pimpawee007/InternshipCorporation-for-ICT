@@ -171,6 +171,11 @@ function contactHTML(contact) {
 // ---------------------------------------------------------------------------
 function pendingCompanyHTML(c) {
     const id = escapeHTML(c.id);
+    const targetCompany = c.mergeTargetId ? companiesCache.find(x => x.id === c.mergeTargetId) : null;
+    const mergeBanner = c.mergeTargetId
+        ? `<div class="merge-notice">${icon('compare')}<span>ขอรวมเป็น Section ใหม่เข้ากับ: <b>${escapeHTML(targetCompany ? targetCompany.name : c.name)}</b>${c.sourceLabel ? ` (หัวข้อ: ${escapeHTML(c.sourceLabel)})` : ''}</span></div>`
+        : '';
+
     const positions = (c.tags || []).filter(t => POSITION_TAGS.includes(t));
     const tags = positions.map(positionPillHTML).join('') + (c.tags || []).filter(t => t !== c.sector && !TRANSIT_TAGS.includes(t) && !POSITION_TAGS.includes(t)).map(t => `<span class="mini-tag">${escapeHTML(t)}</span>`).join('');
     const rows = [
@@ -178,7 +183,8 @@ function pendingCompanyHTML(c) {
     ].filter(([, v]) => v && v !== '-')
         .map(([ic, v]) => `<p class="admin-row">${icon(ic)}<span>${ic === 'phone' ? contactHTML(v) : escapeHTML(v)}</span></p>`).join('');
     return `
-        <article class="admin-card">
+        <article class="admin-card ${c.mergeTargetId ? 'is-merge' : ''}">
+            ${mergeBanner}
             <div class="admin-card-head">
                 ${logoHTML(c)}
                 <div>
@@ -191,7 +197,7 @@ function pendingCompanyHTML(c) {
             ${(c.stations || []).length ? `<div class="station-pills">${c.stations.map(stationPillHTML).join('')}</div>` : ''}
             ${tags ? `<div class="modal-tags">${tags}</div>` : ''}
             <div class="admin-card-actions">
-                <button class="btn-approve" onclick="approveCompany('${id}')">${icon('check')}อนุมัติ</button>
+                <button class="btn-approve" onclick="approveCompany('${id}')">${icon('check')}${c.mergeTargetId ? 'อนุมัติและรวมข้อมูล' : 'อนุมัติ'}</button>
                 <button class="btn-edit" onclick="openEditModal('${id}')">${icon('pencil')}แก้ไข</button>
                 <button class="btn-del" onclick="deleteCompany('${id}')">${icon('trash')}ลบ</button>
             </div>

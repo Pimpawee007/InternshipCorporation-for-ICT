@@ -25,6 +25,22 @@ mongoose.connect(MONGO_URI)
 // Models
 // หมายเหตุ: บริษัทเก่าที่ไม่มี field "status" ถือว่า "approved" (เว็บเดิมใช้ฐานข้อมูลเดียวกัน)
 // ---------------------------------------------------------------------------
+const sectionSchema = new mongoose.Schema({
+    id: String,
+    sourceLabel: String, // เช่น "รอบสหกิจศึกษา", "Job Fair 2026"
+    loc: String,
+    desc: String,
+    pay: String,
+    pos: String,
+    time: String,
+    timeStart: String,
+    timeEnd: String,
+    contact: String,
+    tags: [String],
+    stations: [String],
+    approvedAt: Date
+}, { _id: false });
+
 const companySchema = new mongoose.Schema({
     id: String,
     name: String,
@@ -39,6 +55,8 @@ const companySchema = new mongoose.Schema({
     contact: String,
     tags: [String],
     stations: [String],  // สถานีรถไฟฟ้าใกล้บริษัท เช่น "bts-sukhumvit:อโศก"
+    sections: [sectionSchema], // เก็บข้อมูลแยกตามรอบ/แหล่งที่มาเมื่อมีการรวมข้อมูล
+    mergeTargetId: String,     // ถ้าเป็นการส่งข้อมูลเพื่อรวมเข้าบริษัทเดิม จะเก็บ id ของบริษัทปลายทางไว้ตอน status === 'pending'
     status: String,      // 'approved' | 'pending'
     createdAt: Date
 });
@@ -172,6 +190,7 @@ function withStations(fields, rawStations) {
 function companyFields(body) {
     return withStations({
         name: cleanText(body.name, 150),
+        sourceLabel: cleanText(body.sourceLabel, 100),
         loc: cleanText(body.loc, 200),
         sector: SECTORS.includes(body.sector) ? body.sector : 'เอกชน',
         desc: cleanText(body.desc, 1000),
@@ -181,8 +200,27 @@ function companyFields(body) {
         timeStart: cleanText(body.timeStart, 10),
         timeEnd: cleanText(body.timeEnd, 10),
         contact: cleanText(body.contact, 200),
-        tags: [...new Set(cleanTags(body.tags).map(t => LEGACY_POSITION_MAP[t] || t))]
+        tags: [...new Set(cleanTags(body.tags).map(t => LEGACY_POSITION_MAP[t] || t))],
+        mergeTargetId: cleanText(body.mergeTargetId, 60)
     }, body.stations);
+}
+
+function toSectionObject(c) {
+    return {
+        id: 'sec_' + Date.now() + crypto.randomBytes(2).toString('hex'),
+        sourceLabel: c.sourceLabel || '',
+        loc: c.loc || '',
+        desc: c.desc || '',
+        pay: c.pay || '',
+        pos: c.pos || '',
+        time: c.time || '',
+        timeStart: c.timeStart || '',
+        timeEnd: c.timeEnd || '',
+        contact: c.contact || '',
+        tags: Array.isArray(c.tags) ? c.tags : [],
+        stations: Array.isArray(c.stations) ? c.stations : [],
+        approvedAt: c.createdAt || new Date()
+    };
 }
 
 const plain = (doc) => (doc && typeof doc.toObject === 'function' ? doc.toObject() : doc);
@@ -232,7 +270,57 @@ app.get('/api/companies', async (req, res) => {
     }
 });
 
-// เพิ่มบริษัท → รออนุมัติ
+// ฟังก์ชันกลางสำหรับอนุมัติ 1 รายการ (แยกเคสสร้างใหม่ vs รวม Section)
+async function processApproveCompany(pendingDoc) {
+    const p = plain(pendingDoc);
+    if (!p) return false;
+
+    if (p.mergeTargetId) {
+        const target = await Company.findOne({ id: p.mergeTargetId });
+        if (target) {
+            const tObj = plain(target);
+            // ถ้าบริษัทเดิมยังไม่เคยมี sections ให้เอาข้อมูลเดิมของมันมาตั้งเป็น Section ที่ 1 ก่อน
+            const baseSections = (Array.isArray(tObj.sections) && tObj.sections.length > 0)
+                ? [...tObj.sections]
+                : [toSectionObject({ ...tObj, sourceLabel: 'ข้อมูลหลัก' })];
+
+            const incomingSection = (Array.isArray(p.sections) && p.sections.length > 0)
+                ? { ...p.sections[0], sourceLabel: p.sourceLabel || p.sections[0].sourceLabel || `ข้อมูลเพิ่มเติม (${baseSections.length + 1})`, approvedAt: new Date() }
+                : toSectionObject({ ...p, sourceLabel: p.sourceLabel || `ข้อมูลเพิ่มเติม (${baseSections.length + 1})` });
+
+            baseSections.push(incomingSection);
+
+            // รวม tags และ stations ของทุก section เข้าไว้ที่ระดับบนด้วย เพื่อให้ระบบค้นหาและกรองหน้าแรกหาเจอทั้งหมด
+            const mergedTags = [...new Set([...(tObj.tags || []), ...(incomingSection.tags || [])])];
+            const mergedStations = [...new Set([...(tObj.stations || []), ...(incomingSection.stations || [])])];
+
+            await Company.findOneAndUpdate(
+                { id: target.id },
+                {
+                    sections: baseSections,
+                    tags: mergedTags,
+                    stations: mergedStations
+                }
+            );
+            // ลบรายการ pending ที่รวมเสร็จแล้วออก
+            await Company.findOneAndDelete({ id: p.id });
+            return true;
+        }
+    }
+
+    // กรณีบริษัทใหม่ปกติ
+    const initialSections = (Array.isArray(p.sections) && p.sections.length > 0)
+        ? p.sections
+        : [toSectionObject(p)];
+    await Company.findOneAndUpdate(
+        { id: p.id },
+        { status: 'approved', sections: initialSections },
+        { new: true }
+    );
+    return true;
+}
+
+// เพิ่มบริษัท → รออนุมัติ (รองรับการส่งเพื่อขอรวมเข้าบริษัทเดิม)
 app.post('/api/companies', async (req, res) => {
     try {
         const data = companyFields(req.body || {});
@@ -242,18 +330,38 @@ app.post('/api/companies', async (req, res) => {
 
         const key = normalizeName(data.name);
         const existing = (await Company.find()).map(plain);
-        const dup = key && existing.find(c => normalizeName(c.name) === key);
-        if (dup) {
-            return res.status(409).json({
-                success: false,
-                duplicate: true,
-                message: isApproved(dup) ? `มี "${dup.name}" อยู่ในเว็บแล้ว` : `มีคนส่ง "${dup.name}" มาแล้ว กำลังรอแอดมินตรวจสอบ`
-            });
+
+        // ถ้าผู้ใช้ไม่ได้กดยืนยัน "รวมข้อมูล" (mergeTargetId) มา ให้เช็กชื่อซ้ำก่อน
+        if (!data.mergeTargetId) {
+            const dup = key && existing.find(c => normalizeName(c.name) === key ||
+                (key.length >= 4 && normalizeName(c.name).includes(key)) ||
+                (normalizeName(c.name).length >= 4 && key.includes(normalizeName(c.name)))
+            );
+            if (dup) {
+                return res.status(409).json({
+                    success: false,
+                    duplicate: true,
+                    matchedCompany: { id: dup.id, name: dup.name, isApproved: isApproved(dup) },
+                    message: isApproved(dup) ? `มี "${dup.name}" อยู่ในเว็บแล้ว` : `มีคนส่ง "${dup.name}" มาแล้ว กำลังรอแอดมินตรวจสอบ`
+                });
+            }
+        } else {
+            // ตรวจสอบว่าบริษัทปลายทางที่จะรวมมีอยู่จริง
+            const target = existing.find(c => c.id === data.mergeTargetId);
+            if (!target) {
+                return res.status(404).json({ success: false, message: 'ไม่พบบริษัทต้นทางที่ต้องการรวมข้อมูล' });
+            }
         }
 
-        const newCompany = new Company({ ...data, id: 'c' + Date.now(), status: 'pending', createdAt: new Date() });
+        const newCompany = new Company({
+            ...data,
+            id: 'c' + Date.now(),
+            sections: [toSectionObject(data)],
+            status: 'pending',
+            createdAt: new Date()
+        });
         await newCompany.save();
-        res.json({ success: true, pending: true, company: newCompany });
+        res.json({ success: true, pending: true, mergedRequest: Boolean(data.mergeTargetId), company: newCompany });
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: 'Server error' });
@@ -383,8 +491,9 @@ app.put('/api/companies/:id', requireAdmin, async (req, res) => {
 // อนุมัติบริษัท
 app.post('/api/companies/:id/approve', requireAdmin, async (req, res) => {
     try {
-        const updated = await Company.findOneAndUpdate({ id: req.params.id }, { status: 'approved' }, { new: true });
-        if (!updated) return res.status(404).json({ success: false, message: 'ไม่พบบริษัทนี้' });
+        const doc = await Company.findOne({ id: req.params.id });
+        if (!doc) return res.status(404).json({ success: false, message: 'ไม่พบบริษัทนี้' });
+        await processApproveCompany(doc);
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Server error' });
@@ -420,8 +529,8 @@ app.post('/api/admin/import', requireAdmin, async (req, res) => {
 // อนุมัติบริษัทที่ "รออนุมัติ" ทั้งหมดในครั้งเดียว
 app.post('/api/admin/companies/approve-all', requireAdmin, async (req, res) => {
     try {
-        const pending = (await Company.find({ status: 'pending' })).map(plain);
-        for (const c of pending) await Company.findOneAndUpdate({ id: c.id }, { status: 'approved' });
+        const pending = await Company.find({ status: 'pending' });
+        for (const c of pending) await processApproveCompany(c);
         res.json({ success: true, approved: pending.length });
     } catch (error) {
         console.error(error);

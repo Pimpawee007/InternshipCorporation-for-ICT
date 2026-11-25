@@ -33,7 +33,6 @@
                     <span>Internship <b>ICT</b></span>
                 </a>
             </div>
-            <!-- ปุ่ม Hamburger (เก็บไว้ให้ script.js ใช้งาน — บนมือถือใช้ tab bar ด้านล่างแทน) -->
             <button class="hamburger" id="hamburgerMenu" aria-label="เมนู"><svg class="icon"><use href="#i-menu"/></svg></button>
             <div class="nav-right" id="navLinks">
                 <a href="#find" class="nav-item" data-nav="find" title="ค้นหา"><span class="nav-ic mint"><svg class="icon"><use href="#i-search"/></svg></span><span class="nav-label">ค้นหา</span></a>
@@ -215,7 +214,7 @@
             </div>
         </section>
 
-        <!-- ชวนแชร์บริษัท (ฟอร์มย้ายไปหน้า add.html แล้ว) -->
+        <!-- ชวนแชร์บริษัท -->
         <section class="content-section share-cta">
             <img src="assets/character/thumbs-up.webp" alt="Memo กำลังยกนิ้วโป้งให้" width="455" height="560">
             <div class="share-cta-text">
@@ -248,7 +247,6 @@
                 </div>
             </section>
         </div>
-
     </main>
 
     <footer id="siteFooter" class="site-footer2"></footer>
@@ -346,25 +344,8 @@
             </div>
 
             <div class="modal-body">
-                <div class="modal-details">
-                    <div class="detail-row"><span class="detail-icon"><svg class="icon"><use href="#i-file"/></svg></span><p><strong>คำอธิบาย</strong> <span id="modalDesc" class="break-text"></span></p></div>
-                    <div class="detail-row"><span class="detail-icon"><svg class="icon"><use href="#i-pin"/></svg></span><p><strong>สถานที่ตั้ง</strong> <span id="modalLoc" class="break-text"></span></p></div>
-                    <div class="detail-row hidden" id="modalStationsRow"><span class="detail-icon"><svg class="icon"><use href="#i-train"/></svg></span><p><strong>รถไฟฟ้าใกล้ที่สุด</strong> <span id="modalStations" class="station-pills"></span></p></div>
-                    <div class="detail-row"><span class="detail-icon pay"><svg class="icon"><use href="#i-coins"/></svg></span><p><strong>ค่าตอบแทน</strong> <span id="modalPay" class="highlight-pay break-text"></span></p></div>
-                    <div class="detail-row"><span class="detail-icon"><svg class="icon"><use href="#i-briefcase"/></svg></span><p><strong>ตำแหน่งงานที่เปิดรับ</strong> <span id="modalPositions" class="station-pills"></span><span id="modalPos" class="break-text pos-extra"></span></p></div>
-                    <div class="detail-row"><span class="detail-icon"><svg class="icon"><use href="#i-calendar"/></svg></span><p><strong>ระยะเวลาการรับสมัคร</strong> <span id="modalTime" class="break-text"></span></p></div>
-                    <div class="detail-row"><span class="detail-icon"><svg class="icon"><use href="#i-phone"/></svg></span><p><strong>ช่องทางติดต่อ</strong> <a id="modalContactLink" href="#" target="_blank" rel="noopener" class="break-text link-wrap"></a><span id="modalContactText" class="break-text"></span></p></div>
-                    <div class="modal-tags" id="modalTags"></div>
-                    <div class="missing-box hidden" id="modalMissing">
-                        <img src="assets/character/thinking.webp" alt="" width="420" height="560" loading="lazy">
-                        <div>
-                            <p class="missing-title">Memo ยังหาข้อมูลส่วนนี้ไม่เจอ</p>
-                            <p class="missing-list" id="modalMissingText"></p>
-                            <p class="missing-sub">ข้อมูลอาจยังไม่ประกาศ หรือบริษัทยังไม่เปิดรับในตอนนี้ ลองติดต่อบริษัทโดยตรงนะ</p>
-                            <button type="button" class="action-chip" id="btnHelpInfo"><svg class="icon"><use href="#i-plus"/></svg><span>รู้ข้อมูล? ช่วยเพิ่มให้หน่อย</span></button>
-                        </div>
-                    </div>
-                </div>
+                <!-- รองรับทั้งบริษัทที่มีข้อมูลชุดเดียว และบริษัทที่รวมหลาย Section -->
+                <div class="modal-details" id="modalDetailsContainer"></div>
 
                 <!-- รีวิวจากรุ่นพี่ -->
                 <section class="reviews-section" aria-labelledby="reviewsTitle">
